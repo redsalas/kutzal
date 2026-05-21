@@ -1,36 +1,91 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Kutzal - Pilates Clásico
+
+A modern Next.js website for Kutzal Pilates Studio, featuring a clean design with grey and olive green color palette.
+
+## Features
+
+- ✅ Responsive design with mobile navigation
+- ✅ Grey and olive green color scheme
+- ✅ WhatsApp integration for easy contact
+- ✅ Image placeholders ready for your content
+- ✅ Modern layout with hero section
+- ✅ Footer with social media links
+- ✅ Navigation menu (Inicio, Nosotros, Clases, Planes, Contacto)
 
 ## Getting Started
 
-First, run the development server:
+First, install dependencies:
+
+```bash
+npm install
+```
+
+Then, run the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Customization
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### WhatsApp Number
+Update the phone number in `components/WhatsAppButton.tsx`:
+```typescript
+const phoneNumber = '525512345678'; // Replace with your actual WhatsApp number
+```
 
-## Learn More
+### Contact Information
+Update contact details in `components/Footer.tsx`:
+- Email address
+- Phone number
+- Studio address
+- Social media links
 
-To learn more about Next.js, take a look at the following resources:
+### Colors
+The color palette is defined in `tailwind.config.ts`:
+- Olive green shades (olive-50 to olive-900)
+- Grey shades (grey-50 to grey-900)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Images
+Replace the placeholder sections with your actual images:
+- Hero section background
+- Logo placeholder
+- People/studio images
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Project Structure
 
-## Deploy on Vercel
+```
+kutzal/
+├── app/
+│   ├── layout.tsx          # Root layout with Header, Footer, WhatsApp button
+│   ├── page.tsx            # Home page
+│   └── globals.css         # Global styles
+├── components/
+│   ├── Header.tsx          # Navigation header
+│   ├── Footer.tsx          # Footer with contact info
+│   └── WhatsAppButton.tsx  # Floating WhatsApp button
+└── tailwind.config.ts      # Tailwind configuration with custom colors
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Next Steps
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The following pages need to be created:
+- `/nosotros` - About page
+- `/clases` - Classes page
+- `/planes` - Plans/pricing page
+- `/contacto` - Contact page
+- `/inscribirme` - Sign up page
+
+## Technologies
+
+- Next.js 16
+- React 19
+- TypeScript
+- Tailwind CSS
+- Google Fonts (Inter)
+
+## License
+
+Private project for Kutzal Pilates Studio
