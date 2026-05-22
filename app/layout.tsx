@@ -4,6 +4,7 @@ import "./globals.css";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import WhatsAppButton from "@/components/WhatsAppButton";
+import { AuthProvider } from "@/contexts/AuthContext";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -25,15 +26,17 @@ export default function RootLayout({
       <body
         className={`${inter.variable} antialiased`}
       >
-        <Header />
-        <main className="pt-20">
-          {children}
-        </main>
-        <Footer />
-        <WhatsAppButton />
+        <AuthProvider>
+          <Header />
+          <main className="pt-20">
+            {children}
+          </main>
+          <Footer />
+          <WhatsAppButton />
+        </AuthProvider>
       </body>
     </html>
   );
 }
 
-// Made with Bob
+
