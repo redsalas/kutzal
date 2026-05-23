@@ -3,10 +3,13 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useProfile } from '@/hooks/useProfile';
+import { hasRole } from '@/lib/roles';
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { user, signOut } = useAuth();
+  const { profile } = useProfile();
 
   const navItems = [
     { name: 'Inicio', href: '/' },
@@ -15,6 +18,9 @@ export default function Header() {
     { name: 'Reservar', href: '/reservar' },
     { name: 'Contacto', href: '/contacto' },
   ];
+
+  // Show dashboard link for admin and coach users
+  const showDashboard = profile && (hasRole(profile.role, 'coach') || hasRole(profile.role, 'admin'));
 
   return (
     <header className="bg-white shadow-sm fixed w-full top-0 z-50">
@@ -41,6 +47,27 @@ export default function Header() {
                 {item.name}
               </Link>
             ))}
+            {showDashboard && (
+              <Link
+                href="/dashboard"
+                className="text-olive-600 hover:text-olive-700 font-semibold transition-colors duration-200 flex items-center gap-1"
+              >
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                  />
+                </svg>
+                Dashboard
+              </Link>
+            )}
           </div>
 
           {/* CTA Button */}
@@ -48,7 +75,7 @@ export default function Header() {
             {user ? (
               <div className="flex items-center gap-4">
                 <span className="text-grey-700 text-sm">
-                  {user.email}
+                  {user.user_metadata?.full_name || user.email}
                 </span>
                 <button
                   onClick={() => signOut()}
@@ -136,6 +163,15 @@ export default function Header() {
                 {item.name}
               </Link>
             ))}
+            {showDashboard && (
+              <Link
+                href="/dashboard"
+                className="block py-2 text-olive-600 hover:text-olive-700 font-semibold transition-colors duration-200"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                📊 Dashboard
+              </Link>
+            )}
             {user ? (
               <div className="mt-4 space-y-2">
                 <div className="text-grey-700 text-sm py-2">

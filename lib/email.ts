@@ -182,7 +182,12 @@ function getReservationEmailTemplate(details: {
   time?: string;
   instructor?: string;
   location?: string;
+  isRescheduled?: boolean;
+  previousDate?: string;
+  previousTime?: string;
 }): string {
+  const isRescheduled = details.isRescheduled || false;
+  
   return `
     <!DOCTYPE html>
     <html>
@@ -197,6 +202,7 @@ function getReservationEmailTemplate(details: {
           .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
           .info-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; }
           .button { display: inline-block; padding: 12px 30px; background-color: #8B9D83; color: white; text-decoration: none; border-radius: 25px; margin: 20px 0; }
+          .reschedule-notice { background-color: #e3f2fd; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2196f3; }
         </style>
       </head>
       <body>
@@ -206,8 +212,20 @@ function getReservationEmailTemplate(details: {
             <p style="margin: 5px 0 0 0; font-size: 12px; letter-spacing: 2px;">PILATES CLÁSICO</p>
           </div>
           <div class="content">
-            <h2 style="text-align: center;">Reservación Confirmada</h2>
-            <p style="text-align: center;">Tu clase ha sido reservada exitosamente</p>
+            <h2 style="text-align: center;">${isRescheduled ? 'Clase Reprogramada' : 'Reservación Confirmada'}</h2>
+            <p style="text-align: center;">${isRescheduled ? 'Tu clase ha sido reprogramada' : 'Tu clase ha sido reservada exitosamente'}</p>
+            
+            ${isRescheduled && details.previousDate && details.previousTime ? `
+              <div class="reschedule-notice">
+                <p style="margin: 0 0 10px 0;"><strong>📅 Cambio de horario</strong></p>
+                <p style="margin: 0; font-size: 14px;">
+                  <strong>Clase anterior:</strong> ${details.previousDate} a las ${details.previousTime}
+                </p>
+                <p style="margin: 5px 0 0 0; font-size: 14px;">
+                  <strong>Nueva fecha:</strong> ${details.date} a las ${details.time}
+                </p>
+              </div>
+            ` : ''}
             
             <div class="reservation-card">
               <h3 style="margin-top: 0;">Detalles de tu Reservación</h3>

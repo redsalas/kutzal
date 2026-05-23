@@ -10,6 +10,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [fullName, setFullName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
@@ -30,6 +31,12 @@ export default function LoginPage() {
       return;
     }
 
+    if (isSignUp && !fullName.trim()) {
+      setError('Por favor ingresa tu nombre completo');
+      setLoading(false);
+      return;
+    }
+
     if (isSignUp && password !== confirmPassword) {
       setError('Las contraseñas no coinciden');
       setLoading(false);
@@ -44,7 +51,7 @@ export default function LoginPage() {
 
     try {
       if (isSignUp) {
-        const { error } = await signUp(email, password);
+        const { error } = await signUp(email, password, fullName);
         if (error) {
           setError(error.message || 'Error al crear la cuenta');
         } else {
@@ -53,7 +60,7 @@ export default function LoginPage() {
             await fetch('/api/email/welcome', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ email, userName: email.split('@')[0] }),
+              body: JSON.stringify({ email, userName: fullName }),
             });
           } catch (emailError) {
             console.error('Failed to send welcome email:', emailError);
@@ -64,6 +71,7 @@ export default function LoginPage() {
           setEmail('');
           setPassword('');
           setConfirmPassword('');
+          setFullName('');
         }
       } else {
         const { error } = await signIn(email, password);
@@ -114,6 +122,23 @@ export default function LoginPage() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {isSignUp && (
+              <div>
+                <label htmlFor="fullName" className="block text-sm font-medium text-grey-700 mb-1">
+                  Nombre Completo
+                </label>
+                <input
+                  id="fullName"
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  className="w-full px-4 py-2 border border-grey-300 rounded-lg focus:ring-2 focus:ring-olive-400 focus:border-transparent"
+                  placeholder="Tu nombre completo"
+                  required
+                />
+              </div>
+            )}
+
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-grey-700 mb-1">
                 Correo Electrónico
