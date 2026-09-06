@@ -4,17 +4,17 @@ import { useState } from 'react';
 import Image from 'next/image';
 
 const HERO_IMAGES = [
-  '/images/bg-cover-large-1.jpg',
-  '/images/bg-cover-large-2.jpg',
-  '/images/bg-cover-large-3.jpg',
-  '/images/bg-cover-large-4.jpg',
+  '/images/bg-cover-large-1.webp',
+  '/images/bg-cover-large-2.webp',
+  '/images/bg-cover-large-3.webp',
+  '/images/bg-cover-large-4.webp',
 ];
 
 const HERO_IMAGES_MOBILE = [
-  '/images/bg-cover-mobile-1.jpg',
-  '/images/bg-cover-mobile-2.jpg',
-  '/images/bg-cover-mobile-3.jpg',
-  '/images/bg-cover-mobile-4.jpg',
+  '/images/bg-cover-mobile-1.webp',
+  '/images/bg-cover-mobile-2.webp',
+  '/images/bg-cover-mobile-3.webp',
+  '/images/bg-cover-mobile-4.webp',
 ];
 
 interface HeroSectionProps {

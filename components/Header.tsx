@@ -30,7 +30,7 @@ export default function Header() {
           {/* Logo */}
           <Link href="/" className="flex items-center">
             <Image
-              src="/images/logo-header.png"
+              src="/images/logo-header.webp"
               alt="Kutzal"
               width={120}
               height={48}

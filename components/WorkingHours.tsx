@@ -10,7 +10,7 @@ export default function WorkingHours() {
       {/* Background Image */}
       <div className="absolute inset-0">
         <Image
-          src="/images/kutzal-bg-logo.png"
+          src="/images/kutzal-bg-logo.webp"
           alt="Working hours background"
           fill
           className="object-cover"

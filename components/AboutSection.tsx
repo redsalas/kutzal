@@ -16,7 +16,7 @@ export default function AboutSection({
     'Cuando conocí el Pilates, entendí que no se trataba solamente de hacer ejercicio. El método clásico de Joseph Pilates me enseñó que cada movimiento tiene un propósito; que respirar, controlar, concentrarse y moverse con precisión puede transformar mucho más que nuestro cuerpo.',
     'Por eso quiero que este espacio sea mucho más que un estudio de Pilates. Quiero que sea un lugar donde puedas renacer en movimiento: fortalecer tu cuerpo, conectar contigo, disfrutar el proceso y descubrir una nueva relación con tu bienestar.',
   ],
-  imageSrc = '/images/bg-cover-large-4.jpg',
+  imageSrc = '/images/bg-cover-large-4.webp',
   mobileSrc,
 }: AboutSectionProps) {
   return (

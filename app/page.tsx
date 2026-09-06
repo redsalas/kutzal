@@ -13,14 +13,14 @@ export default function Home() {
       <HeroSection
         title="A REVOLUTIONARY YOU"
         carousel={true}
-        mobileSrc='/images/bg-cover-mobile-1.jpg'
+        mobileSrc='/images/bg-cover-mobile-1.webp'
       />
 
-      <AboutSection mobileSrc='/images/bg-cover-mobile-2.jpg' />
+      <AboutSection mobileSrc='/images/bg-cover-mobile-2.webp' />
 
       {/* Main Content Section */}
       <MainContentSection
-        logoSrc='/images/kutzal-bg-banner.png'
+        logoSrc='/images/kutzal-bg-banner.webp'
         title="A REVOLUTIONARY YOU"
         subtitle="Clases de Pilates Reformer y Functional Training"
         description="En Kutzal, honramos el método clásico de Joseph Pilates a través de sesiones de Reformer que cultivan fuerza, precisión y equilibrio, integrando bienestar físico, mental y espiritual en un entorno de sofisticación y energía."

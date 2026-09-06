@@ -20,7 +20,7 @@ export default function ClasesPage() {
       {/* Hero */}
       <HeroSection 
         title="CLASES"
-        imageSrc='/images/bg-cover-large-1.jpg'
+        imageSrc='/images/bg-cover-large-1.webp'
         carousel={false} 
       />
 

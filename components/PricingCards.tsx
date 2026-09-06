@@ -28,7 +28,7 @@ export default function PricingCards() {
       {/* Background image */}
       <div className="absolute inset-0">
         <Image
-          src="/images/DSC00480.jpg"
+          src="/images/DSC00480.webp"
           alt="Pricing background"
           fill
           className="object-cover"

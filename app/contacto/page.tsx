@@ -47,7 +47,7 @@ export default function ContactoPage() {
       <section className="relative h-72 flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0">
           <Image
-            src="/images/kutzal-bg-banner.png"
+            src="/images/kutzal-bg-banner.webp"
             alt="Contacto hero"
             fill
             className="object-cover"
@@ -173,7 +173,7 @@ export default function ContactoPage() {
           {/* Right — kutzal image */}
           <div className="relative h-[520px] rounded-[3rem] overflow-hidden shadow-lg">
             <Image
-              src="/images/kutzal-bg-secondary.png"
+              src="/images/kutzal-bg-secondary.webp"
               alt="Kutzal studio"
               fill
               className="object-cover"
