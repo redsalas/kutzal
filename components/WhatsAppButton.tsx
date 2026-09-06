@@ -1,7 +1,7 @@
 'use client';
 
 export default function WhatsAppButton() {
-  const phoneNumber = '523840000000';
+  const phoneNumber = '523320106286';
   const message = encodeURIComponent('Hola, me gustaría obtener más información sobre las clases de Pilates en Kutzal.');
 
   const handleWhatsAppClick = () => {

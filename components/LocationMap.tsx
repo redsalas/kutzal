@@ -1,14 +1,14 @@
 export default function LocationMap() {
   // Replace this with your actual Google Maps embed URL
   // To get the embed URL: Go to Google Maps > Search for your location > Click Share > Embed a map > Copy HTML
-  const mapEmbedUrl = "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3762.8!2d-99.1332!3d19.4326!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMTnCsDI1JzU3LjQiTiA5OcKwMDcnNTkuNSJX!5e0!3m2!1sen!2smx!4v1234567890";
-
+  const mapEmbedUrl = "https://www.google.com/maps/embed?pb=!1m14!1m8!1m3!1d3737.394326912963!2d-103.4841005!3d20.4900552!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x842f55f62c9e39c5%3A0x62935eba64d3e5d7!2sKutzal%20-%20Pilates!5e0!3m2!1ses-419!2smx!4v1788570332794!5m2!1ses-419!2smx";
+  
   return (
     <section className="py-20 px-4 bg-white">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="text-center mb-12">
-          <h2 className="text-4xl md:text-5xl font-serif italic mb-4 text-grey-800">
+          <h2 className="text-4xl md:text-5xl font-display italic mb-4 text-grey-800">
             Encuéntranos
           </h2>
           <p className="text-grey-600 text-lg max-w-2xl mx-auto">
@@ -55,9 +55,9 @@ export default function LocationMap() {
             </div>
             <h3 className="font-semibold text-grey-800 mb-2">Dirección</h3>
             <p className="text-grey-600">
-              Calle Principal #123<br />
-              Colonia Centro<br />
-              Ciudad de México, CDMX
+              Cto. Metropolitano Sur 2242-Loc 28,<br />
+              Ubicado en Plaza Punto Vista Sur<br />
+              Tlajomulco de Zúñiga, Jal.
             </p>
           </div>
 
@@ -69,7 +69,7 @@ export default function LocationMap() {
             </div>
             <h3 className="font-semibold text-grey-800 mb-2">Teléfono</h3>
             <p className="text-grey-600">
-              +52 55 1234 5678
+              +52 33 2010 6286
             </p>
           </div>
 
@@ -81,7 +81,7 @@ export default function LocationMap() {
             </div>
             <h3 className="font-semibold text-grey-800 mb-2">Email</h3>
             <p className="text-grey-600">
-              info@kutzal.com
+              info@kutzal.mx
             </p>
           </div>
         </div>

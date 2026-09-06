@@ -94,9 +94,9 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="text-center mb-8">
           <Link href="/" className="inline-block">
-            <div className="text-4xl font-serif italic text-grey-800">
+            <div className="text-4xl font-display italic text-grey-800">
               Kutzal
-              <span className="block text-xs font-sans not-italic tracking-wider text-grey-600">
+              <span className="block text-xs font-body not-italic tracking-wider text-grey-600">
                 PILATES CLÁSICO
               </span>
             </div>
@@ -105,7 +105,7 @@ export default function LoginPage() {
 
         {/* Card */}
         <div className="bg-white rounded-lg shadow-lg p-8">
-          <h2 className="text-2xl font-serif text-grey-800 text-center mb-6">
+          <h2 className="text-2xl font-display text-grey-800 text-center mb-6">
             {isSignUp ? 'Crear Cuenta' : 'Iniciar Sesión'}
           </h2>
 

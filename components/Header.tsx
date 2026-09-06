@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
@@ -13,7 +14,7 @@ export default function Header() {
 
   const navItems = [
     { name: 'Inicio', href: '/' },
-    { name: 'Nosotros', href: '/nosotros' },
+    { name: 'Nosotros', href: '/#about' },
     { name: 'Clases', href: '/clases' },
     { name: 'Reservar', href: '/reservar' },
     { name: 'Contacto', href: '/contacto' },
@@ -28,12 +29,14 @@ export default function Header() {
         <div className="flex justify-between items-center h-20">
           {/* Logo */}
           <Link href="/" className="flex items-center">
-            <div className="text-2xl font-serif italic text-grey-800">
-              Kutzal
-              <span className="block text-xs font-sans not-italic tracking-wider text-grey-600">
-                PILATES CLÁSICO
-              </span>
-            </div>
+            <Image
+              src="/images/logo-header.png"
+              alt="Kutzal"
+              width={120}
+              height={48}
+              className="object-contain"
+              priority
+            />
           </Link>
 
           {/* Desktop Navigation */}

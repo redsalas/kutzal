@@ -129,7 +129,7 @@ export default function CalendarView() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-serif text-grey-800">Calendario de Sesiones</h2>
+        <h2 className="text-2xl font-display text-grey-800">Calendario de Sesiones</h2>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2 text-sm">
             <div className="w-4 h-4 bg-olive-400 rounded"></div>
@@ -402,7 +402,7 @@ function EventDetailModal({ event, onClose, onRefresh }: EventDetailModalProps) 
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
         <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-xl font-serif text-grey-800">Detalles de la Sesión</h3>
+            <h3 className="text-xl font-display text-grey-800">Detalles de la Sesión</h3>
             <button
               onClick={onClose}
               className="text-grey-400 hover:text-grey-600 text-2xl"

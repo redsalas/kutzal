@@ -72,7 +72,7 @@ export default function UserManagement() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-serif text-grey-800">Gestión de Usuarios</h2>
+        <h2 className="text-2xl font-display text-grey-800">Gestión de Usuarios</h2>
         <div className="text-sm text-grey-600">
           Total: {users.length} usuarios
         </div>
@@ -195,7 +195,7 @@ function EditUserModal({ user, onClose, onSave, isAdmin }: EditUserModalProps) {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
-        <h3 className="text-xl font-serif text-grey-800 mb-4">Editar Usuario</h3>
+        <h3 className="text-xl font-display text-grey-800 mb-4">Editar Usuario</h3>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-grey-700 mb-1">

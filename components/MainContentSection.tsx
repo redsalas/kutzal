@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 
 interface MainContentSectionProps {
   logoSrc?: string;
@@ -21,7 +22,7 @@ export default function MainContentSection({
   primaryButtonLink = '/planes',
   secondaryButtonText = 'Reservar',
   secondaryButtonLink = '/contacto',
-  watermarkText = 'Kutzal',
+  watermarkText,
 }: MainContentSectionProps) {
   return (
     <section className="py-20 px-4">
@@ -32,10 +33,11 @@ export default function MainContentSection({
             <div className="relative">
               <div className="w-80 h-80 bg-olive-200 rounded-full flex items-center justify-center overflow-hidden">
                 {logoSrc ? (
-                  <img
+                  <Image
                     src={logoSrc}
                     alt="Kutzal Logo"
-                    className="w-full h-full object-cover"
+                    fill
+                    className="object-cover rounded-full"
                   />
                 ) : (
                   <div className="text-grey-700 text-center">
@@ -56,7 +58,7 @@ export default function MainContentSection({
                   </div>
                 )}
               </div>
-              <div className="absolute -bottom-4 -right-4 text-9xl font-serif italic text-grey-200 opacity-50">
+              <div className="absolute -bottom-4 -right-4 text-9xl font-display italic text-grey-200 opacity-50">
                 {watermarkText}
               </div>
             </div>
@@ -64,7 +66,7 @@ export default function MainContentSection({
 
           {/* Right Side - Content */}
           <div>
-            <h2 className="text-4xl md:text-5xl font-serif italic mb-6 text-grey-800">
+            <h2 className="text-4xl md:text-5xl font-display mb-6 text-grey-800">
               {title}
             </h2>
             <h3 className="text-xl text-grey-600 mb-6">{subtitle}</h3>

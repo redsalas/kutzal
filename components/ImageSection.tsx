@@ -1,3 +1,5 @@
+import Image from 'next/image';
+
 interface ImageSectionProps {
   watermarkText?: string;
   imageSrc?: string;
@@ -25,7 +27,7 @@ export default function ImageSection({
               isImageRight ? 'order-1' : 'order-2 lg:order-1'
             }`}
           >
-            <div className="text-9xl font-serif italic text-grey-200">
+            <div className="text-9xl font-display italic text-grey-200">
               {watermarkText}
             </div>
           </div>
@@ -38,10 +40,11 @@ export default function ImageSection({
           >
             <div className="relative h-96 bg-olive-200 rounded-[3rem] overflow-hidden">
               {imageSrc ? (
-                <img
+                <Image
                   src={imageSrc}
                   alt={imageAlt}
-                  className="w-full h-full object-cover"
+                  fill
+                  className="object-cover"
                 />
               ) : (
                 <div className="absolute inset-0 flex items-center justify-center text-grey-600">

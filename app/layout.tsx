@@ -1,14 +1,26 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import { AuthProvider } from "@/contexts/AuthContext";
 
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
+const flowers = localFont({
+  src: [
+    { path: "../public/fonts/FlowersOfNineties-Regular.woff2",    weight: "400", style: "normal" },
+    { path: "../public/fonts/FlowersOfNineties-Extralight.woff2", weight: "200", style: "normal" },
+    { path: "../public/fonts/FlowersOfNineties-XlightItalic.woff2", weight: "200", style: "italic" },
+  ],
+  variable: "--font-flowers",
+});
+
+const trevia = localFont({
+  src: [
+    { path: "../public/fonts/TreviaGroteska-Regular.woff2",        weight: "400", style: "normal" },
+    { path: "../public/fonts/TreviaGroteska-Regular-Italic.woff2", weight: "400", style: "italic" },
+  ],
+  variable: "--font-trevia",
 });
 
 export const metadata: Metadata = {
@@ -24,7 +36,7 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body
-        className={`${inter.variable} antialiased`}
+        className={`${flowers.variable} ${trevia.variable} antialiased`}
       >
         <AuthProvider>
           <Header />

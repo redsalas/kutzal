@@ -28,7 +28,7 @@ export default function DashboardPage() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-3xl font-serif italic text-grey-800">
+                <h1 className="text-3xl font-display italic text-grey-800">
                   Panel de Control
                 </h1>
                 <p className="text-sm text-grey-600 mt-1">
