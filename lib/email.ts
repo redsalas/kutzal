@@ -2,6 +2,31 @@ import { Resend } from 'resend';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+
+// Email clients require a publicly accessible HTTPS URL for images.
+// Make sure NEXT_PUBLIC_APP_URL is set to your production domain in .env
+const LOGO_URL = `${APP_URL}/images/logo-header.webp`;
+
+// Shared header HTML used in all templates
+function emailHeader(): string {
+  return `
+    <div style="background-color:#3d4a35;padding:28px 40px;text-align:center;">
+      <img src="${LOGO_URL}" alt="Kutzal" style="height:48px;width:auto;display:inline-block;" />
+    </div>
+  `;
+}
+
+// Shared footer HTML used in all templates
+function emailFooter(): string {
+  return `
+    <div style="text-align:center;padding:24px 40px;color:#888;font-size:12px;border-top:1px solid #e5e7eb;">
+      <p style="margin:0 0 4px 0;">© ${new Date().getFullYear()} Kutzal Studio. Todos los derechos reservados.</p>
+      <p style="margin:0;">info@kutzal.mx</p>
+    </div>
+  `;
+}
+
 export interface EmailOptions {
   to: string;
   subject: string;
@@ -26,24 +51,8 @@ export async function sendEmail({ to, subject, html }: EmailOptions) {
 
 // Email notification functions
 export async function sendWelcomeEmail(email: string, userName?: string) {
-  const subject = '¡Bienvenido a Kutzal Pilates Clásico!';
+  const subject = '¡Bienvenido a Kutzal!';
   const html = getWelcomeEmailTemplate(userName || email);
-  
-  return sendEmail({ to: email, subject, html });
-}
-
-export async function sendPlanPurchaseEmail(
-  email: string,
-  planName: string,
-  planDetails: {
-    price?: string;
-    duration?: string;
-    features?: string[];
-  }
-) {
-  const subject = `Confirmación de compra - ${planName}`;
-  const html = getPlanPurchaseEmailTemplate(planName, planDetails);
-  
   return sendEmail({ to: email, subject, html });
 }
 
@@ -57,123 +66,51 @@ export async function sendReservationEmail(
     location?: string;
   }
 ) {
-  const subject = 'Confirmación de Reservación - Kutzal';
+  const subject = 'Confirmación de Reservación — Kutzal';
   const html = getReservationEmailTemplate(reservationDetails);
-  
   return sendEmail({ to: email, subject, html });
 }
 
-// Email Templates (placeholders - to be customized)
-function getWelcomeEmailTemplate(userName: string): string {
-  return `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="utf-8">
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background-color: #8B9D83; color: white; padding: 30px; text-align: center; }
-          .content { padding: 30px; background-color: #f9f9f9; }
-          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-          .button { display: inline-block; padding: 12px 30px; background-color: #8B9D83; color: white; text-decoration: none; border-radius: 25px; margin: 20px 0; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1 style="margin: 0; font-style: italic;">Kutzal</h1>
-            <p style="margin: 5px 0 0 0; font-size: 12px; letter-spacing: 2px;">PILATES CLÁSICO</p>
-          </div>
-          <div class="content">
-            <h2>¡Bienvenido a Kutzal, ${userName}!</h2>
-            <p>Estamos emocionados de tenerte en nuestra comunidad de Pilates Clásico.</p>
-            
-            <!-- TODO: Customize welcome message -->
-            <p>En Kutzal, fusionamos vitalidad física con bienestar mental y espiritual en un ambiente de sofisticación y energía.</p>
-            
-            <p>Próximos pasos:</p>
-            <ul>
-              <li>Explora nuestras clases disponibles</li>
-              <li>Elige el plan que mejor se adapte a ti</li>
-              <li>Reserva tu primera clase</li>
-            </ul>
-            
-            <div style="text-align: center;">
-              <a href="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}" class="button">
-                Explorar Clases
-              </a>
-            </div>
-          </div>
-          <div class="footer">
-            <p>© ${new Date().getFullYear()} Kutzal Pilates Clásico. Todos los derechos reservados.</p>
-            <!-- TODO: Add contact information and social media links -->
-          </div>
-        </div>
-      </body>
-    </html>
-  `;
+export async function sendPackagePurchaseEmail(
+  email: string,
+  details: {
+    userName?: string;
+    packageName: string;
+    totalClasses: number;
+    totalCost: number;
+    expiresAt: string; // ISO date string
+  }
+) {
+  const subject = `¡Compra confirmada! ${details.packageName} — Kutzal`;
+  const html = getPackagePurchaseEmailTemplate(details);
+  return sendEmail({ to: email, subject, html });
 }
 
-function getPlanPurchaseEmailTemplate(
-  planName: string,
-  details: { price?: string; duration?: string; features?: string[] }
-): string {
-  return `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="utf-8">
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background-color: #8B9D83; color: white; padding: 30px; text-align: center; }
-          .content { padding: 30px; background-color: #f9f9f9; }
-          .plan-details { background-color: white; padding: 20px; border-radius: 8px; margin: 20px 0; }
-          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-          .checkmark { color: #8B9D83; font-size: 48px; text-align: center; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1 style="margin: 0; font-style: italic;">Kutzal</h1>
-            <p style="margin: 5px 0 0 0; font-size: 12px; letter-spacing: 2px;">PILATES CLÁSICO</p>
+// ─── Email Templates ──────────────────────────────────────────────────────────
+
+function getWelcomeEmailTemplate(userName: string): string {
+  return `<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background-color:#f7f8fa;font-family:'Helvetica Neue',Arial,sans-serif;color:#1f2328;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f7f8fa;padding:32px 16px;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
+        <tr><td>${emailHeader()}</td></tr>
+        <tr><td style="padding:40px;">
+          <h2 style="margin:0 0 16px;font-size:22px;color:#1f2328;">¡Bienvenido a Kutzal, ${userName}!</h2>
+          <p style="margin:0 0 16px;color:#57606a;line-height:1.7;">Estamos muy contentos de tenerte en nuestra comunidad. En Kutzal, fusionamos vitalidad física con bienestar mental y espiritual en un ambiente de sofisticación y energía.</p>
+          <p style="margin:0 0 24px;color:#57606a;line-height:1.7;">Para comenzar, recuerda que tienes una <strong>clase muestra gratuita</strong> esperándote.</p>
+          <div style="text-align:center;margin:32px 0;">
+            <a href="${APP_URL}/clases" style="display:inline-block;padding:14px 32px;background-color:#4a5c3f;color:#ffffff;text-decoration:none;border-radius:24px;font-weight:600;font-size:15px;">Reservar mi clase muestra</a>
           </div>
-          <div class="content">
-            <div class="checkmark">✓</div>
-            <h2 style="text-align: center;">¡Compra Confirmada!</h2>
-            <p style="text-align: center;">Gracias por elegir Kutzal</p>
-            
-            <div class="plan-details">
-              <h3>Detalles de tu Plan</h3>
-              <p><strong>Plan:</strong> ${planName}</p>
-              ${details.price ? `<p><strong>Precio:</strong> ${details.price}</p>` : ''}
-              ${details.duration ? `<p><strong>Duración:</strong> ${details.duration}</p>` : ''}
-              
-              ${details.features && details.features.length > 0 ? `
-                <p><strong>Incluye:</strong></p>
-                <ul>
-                  ${details.features.map(feature => `<li>${feature}</li>`).join('')}
-                </ul>
-              ` : ''}
-            </div>
-            
-            <!-- TODO: Add payment receipt details -->
-            <!-- TODO: Add next steps and how to use the plan -->
-            
-            <p style="text-align: center; margin-top: 30px;">
-              ¿Tienes preguntas? Contáctanos en cualquier momento.
-            </p>
-          </div>
-          <div class="footer">
-            <p>© ${new Date().getFullYear()} Kutzal Pilates Clásico. Todos los derechos reservados.</p>
-            <!-- TODO: Add contact information -->
-          </div>
-        </div>
-      </body>
-    </html>
-  `;
+        </td></tr>
+        <tr><td>${emailFooter()}</td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
 }
 
 function getReservationEmailTemplate(details: {
@@ -182,112 +119,134 @@ function getReservationEmailTemplate(details: {
   time?: string;
   instructor?: string;
   location?: string;
-  isRescheduled?: boolean;
-  previousDate?: string;
-  previousTime?: string;
 }): string {
-  const isRescheduled = details.isRescheduled || false;
-  
-  return `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="utf-8">
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background-color: #8B9D83; color: white; padding: 30px; text-align: center; }
-          .content { padding: 30px; background-color: #f9f9f9; }
-          .reservation-card { background-color: white; padding: 25px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #8B9D83; }
-          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-          .info-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; }
-          .button { display: inline-block; padding: 12px 30px; background-color: #8B9D83; color: white; text-decoration: none; border-radius: 25px; margin: 20px 0; }
-          .reschedule-notice { background-color: #e3f2fd; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2196f3; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1 style="margin: 0; font-style: italic;">Kutzal</h1>
-            <p style="margin: 5px 0 0 0; font-size: 12px; letter-spacing: 2px;">PILATES CLÁSICO</p>
+  const rows = [
+    { label: 'Clase',       value: details.className },
+    { label: 'Fecha',       value: details.date },
+    { label: 'Hora',        value: details.time },
+    { label: 'Instructor',  value: details.instructor },
+    { label: 'Ubicación',   value: details.location },
+  ].filter((r) => r.value);
+
+  const tableRows = rows
+    .map(
+      (r, i) => `
+      <tr style="background:${i % 2 === 0 ? '#f7f8fa' : '#ffffff'};">
+        <td style="padding:12px 16px;font-weight:600;color:#1f2328;width:40%;font-size:14px;">${r.label}</td>
+        <td style="padding:12px 16px;color:#57606a;font-size:14px;">${r.value}</td>
+      </tr>`
+    )
+    .join('');
+
+  return `<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background-color:#f7f8fa;font-family:'Helvetica Neue',Arial,sans-serif;color:#1f2328;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f7f8fa;padding:32px 16px;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
+        <tr><td>${emailHeader()}</td></tr>
+        <tr><td style="padding:40px 40px 24px;">
+          <div style="text-align:center;margin-bottom:28px;">
+            <div style="display:inline-block;width:56px;height:56px;background-color:#4a5c3f;border-radius:50%;text-align:center;line-height:56px;font-size:26px;color:#fff;">✓</div>
           </div>
-          <div class="content">
-            <h2 style="text-align: center;">${isRescheduled ? 'Clase Reprogramada' : 'Reservación Confirmada'}</h2>
-            <p style="text-align: center;">${isRescheduled ? 'Tu clase ha sido reprogramada' : 'Tu clase ha sido reservada exitosamente'}</p>
-            
-            ${isRescheduled && details.previousDate && details.previousTime ? `
-              <div class="reschedule-notice">
-                <p style="margin: 0 0 10px 0;"><strong>📅 Cambio de horario</strong></p>
-                <p style="margin: 0; font-size: 14px;">
-                  <strong>Clase anterior:</strong> ${details.previousDate} a las ${details.previousTime}
-                </p>
-                <p style="margin: 5px 0 0 0; font-size: 14px;">
-                  <strong>Nueva fecha:</strong> ${details.date} a las ${details.time}
-                </p>
-              </div>
-            ` : ''}
-            
-            <div class="reservation-card">
-              <h3 style="margin-top: 0;">Detalles de tu Reservación</h3>
-              
-              ${details.className ? `
-                <div class="info-row">
-                  <strong>Clase:</strong>
-                  <span>${details.className}</span>
-                </div>
-              ` : ''}
-              
-              ${details.date ? `
-                <div class="info-row">
-                  <strong>Fecha:</strong>
-                  <span>${details.date}</span>
-                </div>
-              ` : ''}
-              
-              ${details.time ? `
-                <div class="info-row">
-                  <strong>Hora:</strong>
-                  <span>${details.time}</span>
-                </div>
-              ` : ''}
-              
-              ${details.instructor ? `
-                <div class="info-row">
-                  <strong>Instructor:</strong>
-                  <span>${details.instructor}</span>
-                </div>
-              ` : ''}
-              
-              ${details.location ? `
-                <div class="info-row" style="border-bottom: none;">
-                  <strong>Ubicación:</strong>
-                  <span>${details.location}</span>
-                </div>
-              ` : ''}
-            </div>
-            
-            <!-- TODO: Add calendar invite attachment -->
-            <!-- TODO: Add cancellation policy -->
-            <!-- TODO: Add what to bring to class -->
-            
-            <div style="background-color: #fff3cd; padding: 15px; border-radius: 8px; margin: 20px 0;">
-              <p style="margin: 0;"><strong>Recordatorio:</strong> Por favor llega 10 minutos antes de tu clase.</p>
-            </div>
-            
-            <div style="text-align: center;">
-              <a href="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/reservar" class="button">
-                Ver Mis Reservaciones
-              </a>
-            </div>
+          <h2 style="margin:0 0 8px;font-size:22px;text-align:center;color:#1f2328;">Reservación Confirmada</h2>
+          <p style="margin:0 0 28px;text-align:center;color:#57606a;">Tu clase ha sido reservada exitosamente.</p>
+
+          <table width="100%" cellpadding="0" cellspacing="0" style="border-radius:8px;overflow:hidden;border:1px solid #e5e7eb;margin-bottom:24px;">
+            ${tableRows}
+          </table>
+
+          <div style="background-color:#fefce8;border:1px solid #fde68a;border-radius:8px;padding:14px 18px;margin-bottom:28px;">
+            <p style="margin:0;font-size:13px;color:#854d0e;"><strong>Recordatorio:</strong> Por favor llega 10 minutos antes de tu clase. Trae calcetines, toalla y agua.</p>
           </div>
-          <div class="footer">
-            <p>© ${new Date().getFullYear()} Kutzal Pilates Clásico. Todos los derechos reservados.</p>
-            <!-- TODO: Add contact information and location -->
+
+          <div style="text-align:center;">
+            <a href="${APP_URL}/perfil" style="display:inline-block;padding:14px 32px;background-color:#4a5c3f;color:#ffffff;text-decoration:none;border-radius:24px;font-weight:600;font-size:15px;">Ver mis reservaciones</a>
           </div>
-        </div>
-      </body>
-    </html>
-  `;
+        </td></tr>
+        <tr><td>${emailFooter()}</td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
 }
 
+function getPackagePurchaseEmailTemplate(details: {
+  userName?: string;
+  packageName: string;
+  totalClasses: number;
+  totalCost: number;
+  expiresAt: string;
+}): string {
+  const expiry = new Date(details.expiresAt).toLocaleDateString('es-MX', {
+    day: '2-digit', month: 'long', year: 'numeric',
+  });
+  const today = new Date().toLocaleDateString('es-MX', {
+    day: '2-digit', month: 'long', year: 'numeric',
+  });
 
+  return `<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background-color:#f7f8fa;font-family:'Helvetica Neue',Arial,sans-serif;color:#1f2328;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f7f8fa;padding:32px 16px;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
+        <tr><td>${emailHeader()}</td></tr>
+        <tr><td style="padding:40px 40px 24px;">
+          <div style="text-align:center;margin-bottom:28px;">
+            <div style="display:inline-block;width:56px;height:56px;background-color:#4a5c3f;border-radius:50%;text-align:center;line-height:56px;font-size:26px;color:#fff;">✓</div>
+          </div>
+          <h2 style="margin:0 0 8px;font-size:22px;text-align:center;color:#1f2328;">¡Compra Exitosa!</h2>
+          <p style="margin:0 0 28px;text-align:center;color:#57606a;">
+            ${details.userName ? `Hola ${details.userName}, tu` : 'Tu'} paquete ha sido activado.
+          </p>
+
+          <!-- Package summary card -->
+          <div style="background-color:#4a5c3f;border-radius:12px;padding:28px;text-align:center;margin-bottom:24px;">
+            <p style="margin:0 0 4px;color:#c8d5b9;font-size:12px;letter-spacing:2px;text-transform:uppercase;">Paquete adquirido</p>
+            <p style="margin:0 0 16px;color:#ffffff;font-size:22px;font-weight:700;">${details.packageName}</p>
+            <p style="margin:0;color:#ffffff;font-size:48px;font-weight:800;line-height:1;">${details.totalClasses}</p>
+            <p style="margin:4px 0 0;color:#c8d5b9;font-size:14px;">clase${details.totalClasses > 1 ? 's' : ''} disponible${details.totalClasses > 1 ? 's' : ''}</p>
+          </div>
+
+          <!-- Details table -->
+          <table width="100%" cellpadding="0" cellspacing="0" style="border-radius:8px;overflow:hidden;border:1px solid #e5e7eb;margin-bottom:24px;">
+            <tr style="background:#f7f8fa;">
+              <td style="padding:12px 16px;font-weight:600;color:#1f2328;width:40%;font-size:14px;">Paquete</td>
+              <td style="padding:12px 16px;color:#57606a;font-size:14px;">${details.packageName}</td>
+            </tr>
+            <tr style="background:#ffffff;">
+              <td style="padding:12px 16px;font-weight:600;color:#1f2328;font-size:14px;">Total pagado</td>
+              <td style="padding:12px 16px;color:#57606a;font-size:14px;">$${details.totalCost} MXN</td>
+            </tr>
+            <tr style="background:#f7f8fa;">
+              <td style="padding:12px 16px;font-weight:600;color:#1f2328;font-size:14px;">Fecha de compra</td>
+              <td style="padding:12px 16px;color:#57606a;font-size:14px;">${today}</td>
+            </tr>
+            <tr style="background:#ffffff;">
+              <td style="padding:12px 16px;font-weight:600;color:#1f2328;font-size:14px;">Válido hasta</td>
+              <td style="padding:12px 16px;color:#57606a;font-size:14px;">${expiry}</td>
+            </tr>
+          </table>
+
+          <div style="background-color:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:14px 18px;margin-bottom:28px;">
+            <p style="margin:0;font-size:13px;color:#166534;">Tienes <strong>${details.totalClasses} clase${details.totalClasses > 1 ? 's' : ''}</strong> para usar antes del <strong>${expiry}</strong>. ¡Empieza a reservar!</p>
+          </div>
+
+          <div style="text-align:center;">
+            <a href="${APP_URL}/reservar" style="display:inline-block;padding:14px 32px;background-color:#4a5c3f;color:#ffffff;text-decoration:none;border-radius:24px;font-weight:600;font-size:15px;">Reservar mi primera clase</a>
+          </div>
+          <p style="text-align:center;margin-top:16px;">
+            <a href="${APP_URL}/perfil" style="color:#4a5c3f;font-size:13px;">Ver mis paquetes →</a>
+          </p>
+        </td></tr>
+        <tr><td>${emailFooter()}</td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}

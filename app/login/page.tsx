@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
+import HealthFormModal from '@/components/HealthFormModal';
 
 export default function LoginPage() {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -14,7 +15,11 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
-  
+
+  // Health form state
+  const [showHealthForm, setShowHealthForm] = useState(false);
+  const [pendingUserId, setPendingUserId] = useState<string | null>(null);
+
   const { signIn, signUp } = useAuth();
   const router = useRouter();
 
@@ -51,7 +56,7 @@ export default function LoginPage() {
 
     try {
       if (isSignUp) {
-        const { error } = await signUp(email, password, fullName);
+        const { error, userId } = await signUp(email, password, fullName);
         if (error) {
           setError(error.message || 'Error al crear la cuenta');
         } else {
@@ -64,14 +69,16 @@ export default function LoginPage() {
             });
           } catch (emailError) {
             console.error('Failed to send welcome email:', emailError);
-            // Don't show error to user, just log it
           }
-          
-          setSuccessMessage('¡Cuenta creada! Por favor verifica tu correo electrónico.');
-          setEmail('');
-          setPassword('');
-          setConfirmPassword('');
-          setFullName('');
+
+          // Show health form before finishing registration
+          if (userId) {
+            setPendingUserId(userId);
+            setShowHealthForm(true);
+          } else {
+            setSuccessMessage('¡Cuenta creada! Por favor verifica tu correo electrónico.');
+            resetForm();
+          }
         }
       } else {
         const { error } = await signIn(email, password);
@@ -81,11 +88,33 @@ export default function LoginPage() {
           router.push('/');
         }
       }
-    } catch (err) {
+    } catch {
       setError('Ocurrió un error inesperado');
     } finally {
       setLoading(false);
     }
+  };
+
+  const resetForm = () => {
+    setEmail('');
+    setPassword('');
+    setConfirmPassword('');
+    setFullName('');
+  };
+
+  const handleHealthFormComplete = () => {
+    setShowHealthForm(false);
+    setPendingUserId(null);
+    resetForm();
+    setSuccessMessage('¡Cuenta creada! Por favor verifica tu correo electrónico para activar tu cuenta.');
+  };
+
+  const handleHealthFormClose = () => {
+    // User cancelled the health form — still show success, they can fill it later
+    setShowHealthForm(false);
+    setPendingUserId(null);
+    resetForm();
+    setSuccessMessage('¡Cuenta creada! Por favor verifica tu correo electrónico.');
   };
 
   return (
@@ -186,6 +215,12 @@ export default function LoginPage() {
               </div>
             )}
 
+            {isSignUp && (
+              <p className="text-xs text-grey-500 bg-olive-50 border border-olive-200 rounded p-2">
+                📋 Al crear tu cuenta se te pedirá completar un breve formulario de salud y objetivos para personalizar tu experiencia.
+              </p>
+            )}
+
             <button
               type="submit"
               disabled={loading}
@@ -220,7 +255,15 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
+
+      {/* Health & Goals Form Modal */}
+      {showHealthForm && pendingUserId && (
+        <HealthFormModal
+          userId={pendingUserId}
+          onComplete={handleHealthFormComplete}
+          onClose={handleHealthFormClose}
+        />
+      )}
     </div>
   );
 }
-

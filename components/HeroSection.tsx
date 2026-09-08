@@ -4,7 +4,6 @@ import { useState } from 'react';
 import Image from 'next/image';
 
 const HERO_IMAGES = [
-  '/images/bg-cover-large-1.webp',
   '/images/bg-cover-large-2.webp',
   '/images/bg-cover-large-3.webp',
   '/images/bg-cover-large-4.webp',

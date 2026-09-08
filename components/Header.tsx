@@ -76,10 +76,13 @@ export default function Header() {
           {/* CTA Button */}
           <div className="hidden md:block">
             {user ? (
-              <div className="flex items-center gap-4">
-                <span className="text-grey-700 text-sm">
-                  {user.user_metadata?.full_name || user.email}
-                </span>
+                <div className="flex items-center gap-4">
+                  <Link
+                    href="/perfil"
+                    className="text-grey-700 hover:text-olive-600 text-sm transition-colors duration-200"
+                  >
+                    {user.user_metadata?.full_name || user.email}
+                  </Link>
                 <button
                   onClick={() => signOut()}
                   className="bg-grey-400 hover:bg-grey-500 text-white px-6 py-2.5 rounded-full transition-colors duration-200 flex items-center gap-2"
@@ -177,9 +180,13 @@ export default function Header() {
             )}
             {user ? (
               <div className="mt-4 space-y-2">
-                <div className="text-grey-700 text-sm py-2">
-                  {user.email}
-                </div>
+                <Link
+                  href="/perfil"
+                  className="block py-2 text-grey-700 hover:text-olive-600 transition-colors duration-200"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  👤 Mi Perfil
+                </Link>
                 <button
                   onClick={() => {
                     signOut();

@@ -16,7 +16,7 @@ interface MainContentSectionProps {
 export default function MainContentSection({
   logoSrc,
   title = 'A REVOLUTIONARY YOU',
-  subtitle = 'Clases de Pilates Reformer y Functional Training',
+  subtitle = 'Clases de Pilates y Functional Training',
   description = 'Kutzal fusiona vitalidad física con bienestar mental y espiritual en un ambiente de sofisticación y energía.',
   primaryButtonText = 'Ver planes',
   primaryButtonLink = '/planes',

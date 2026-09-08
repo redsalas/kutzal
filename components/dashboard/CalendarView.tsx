@@ -294,18 +294,48 @@ function EventDetailModal({ event, onClose, onRefresh }: EventDetailModalProps) 
     }
   };
 
-  const handleCancelBooking = async (bookingId: string) => {
+  const handleCancelBooking = async (bookingId: string, userId: string) => {
     if (!confirm('¿Estás seguro de que quieres cancelar esta reservación?')) {
       return;
     }
 
     try {
+      // 1. Check whether this booking was the user's free first class.
+      //    A booking counts as "free" when the user has no packages at all
+      //    (they used their one-time free class slot).
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('first_class_taken')
+        .eq('id', userId)
+        .single();
+
+      const { data: packages } = await supabase
+        .from('class_packages')
+        .select('id')
+        .eq('user_id', userId)
+        .limit(1);
+
+      const hasPackages = packages && packages.length > 0;
+      // If first_class_taken is true AND user has no packages, this was the free class
+      const wasFirstClass = profile?.first_class_taken && !hasPackages;
+
+      // 2. Cancel the booking
       const { error } = await supabase
         .from('bookings')
         .update({ status: 'cancelled' })
         .eq('id', bookingId);
 
       if (error) throw error;
+
+      // 3. Restore a class to the user's package (unless it was the free class)
+      if (!wasFirstClass) {
+        const { error: restoreError } = await supabase
+          .rpc('restore_class_to_package', { p_user_id: userId });
+        if (restoreError) {
+          console.error('Could not restore class to package:', restoreError);
+          // Non-fatal: booking is still cancelled, just log the issue
+        }
+      }
 
       alert('Reservación cancelada exitosamente');
       fetchBookings();
@@ -498,7 +528,7 @@ function EventDetailModal({ event, onClose, onRefresh }: EventDetailModalProps) 
                         Reprogramar
                       </button>
                       <button
-                        onClick={() => handleCancelBooking(booking.id)}
+                        onClick={() => handleCancelBooking(booking.id, booking.user_id)}
                         className="px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200 transition"
                       >
                         Cancelar

@@ -1,22 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sendPlanPurchaseEmail } from '@/lib/email';
+import { sendPackagePurchaseEmail } from '@/lib/email';
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, planName, planDetails } = await request.json();
+    const { email, packageName, totalClasses, totalCost, expiresAt, userName } = await request.json();
 
-    if (!email || !planName) {
+    if (!email || !packageName || !totalClasses || !totalCost || !expiresAt) {
       return NextResponse.json(
-        { error: 'Email and plan name are required' },
+        { error: 'Missing required fields' },
         { status: 400 }
       );
     }
 
-    const result = await sendPlanPurchaseEmail(email, planName, planDetails || {});
+    const result = await sendPackagePurchaseEmail(email, {
+      userName,
+      packageName,
+      totalClasses,
+      totalCost,
+      expiresAt,
+    });
 
     if (result.success) {
       return NextResponse.json(
-        { message: 'Plan purchase email sent successfully', data: result.data },
+        { message: 'Package purchase email sent successfully', data: result.data },
         { status: 200 }
       );
     } else {
@@ -26,12 +32,10 @@ export async function POST(request: NextRequest) {
       );
     }
   } catch (error) {
-    console.error('Error in plan purchase email API:', error);
+    console.error('Error in package purchase email API:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
     );
   }
 }
-
-

@@ -22,7 +22,7 @@ export default function Home() {
       <MainContentSection
         logoSrc='/images/kutzal-bg-banner.webp'
         title="A REVOLUTIONARY YOU"
-        subtitle="Clases de Pilates Reformer y Functional Training"
+        subtitle="Clases de Pilates y Functional Training"
         description="En Kutzal, honramos el método clásico de Joseph Pilates a través de sesiones de Reformer que cultivan fuerza, precisión y equilibrio, integrando bienestar físico, mental y espiritual en un entorno de sofisticación y energía."
         primaryButtonText="Ver clases"
         primaryButtonLink="/clases"

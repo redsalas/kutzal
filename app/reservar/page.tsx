@@ -3,9 +3,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { format, addDays, startOfWeek, isSameDay, parseISO, differenceInHours } from 'date-fns';
 import { es } from 'date-fns/locale';
+
+type BookingEligibility = 'first_class' | 'package' | 'none' | 'loading';
 
 interface SessionType {
   id: string;
@@ -51,6 +54,7 @@ export default function ReservarPage() {
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancellingBooking, setCancellingBooking] = useState(false);
+  const [eligibility, setEligibility] = useState<BookingEligibility>('loading');
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -58,6 +62,21 @@ export default function ReservarPage() {
       router.push('/login?redirect=/reservar');
     }
   }, [user, authLoading, router]);
+
+  // Check booking eligibility
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .rpc('can_user_book', { p_user_id: user.id })
+      .then(({ data, error }) => {
+        if (error) {
+          console.error('Eligibility check error:', error);
+          setEligibility('none');
+        } else {
+          setEligibility(data as BookingEligibility);
+        }
+      });
+  }, [user]);
 
   // Fetch sessions and user bookings
   const fetchSessions = useCallback(async () => {
@@ -118,6 +137,24 @@ export default function ReservarPage() {
     try {
       setBookingLoading(true);
 
+      // Gate: user must have eligibility to book
+      if (eligibility === 'none') {
+        alert('Necesitas un paquete activo para reservar clases.');
+        router.push('/clases');
+        return;
+      }
+
+      // Gate: session must be in the future
+      const [year, month, day] = selectedSession.date.split('-').map(Number);
+      const [hours, minutes] = selectedSession.time.split(':').map(Number);
+      const sessionDateTime = new Date(year, month - 1, day, hours, minutes);
+      if (sessionDateTime <= new Date()) {
+        alert('No puedes reservar una clase que ya ocurrió.');
+        setShowBookingModal(false);
+        setSelectedSession(null);
+        return;
+      }
+
       // Check if session is full
       if (selectedSession.current_bookings >= selectedSession.max_capacity) {
         alert('Lo sentimos, esta sesión está llena.');
@@ -143,6 +180,22 @@ export default function ReservarPage() {
         .single();
 
       if (bookingError) throw bookingError;
+
+      // Consume eligibility after successful booking
+      if (eligibility === 'first_class') {
+        // Mark first class as taken
+        await supabase
+          .from('profiles')
+          .update({ first_class_taken: true })
+          .eq('id', user.id);
+        setEligibility('none');
+      } else if (eligibility === 'package') {
+        // Deduct one class from active package
+        await supabase.rpc('consume_class_from_package', { p_user_id: user.id });
+        // Refresh eligibility in case package is now exhausted
+        const { data } = await supabase.rpc('can_user_book', { p_user_id: user.id });
+        if (data) setEligibility(data as BookingEligibility);
+      }
 
       // Get user profile for email
       const { data: profile } = await supabase
@@ -211,6 +264,18 @@ export default function ReservarPage() {
         return;
       }
 
+      // Determine if this is eligible for a class refund:
+      // - Must cancel at least 8 hours before the session (canCancelWithRefund)
+      // - Must NOT be the free first class (user has packages = paid booking)
+      const withRefund = canCancelWithRefund(selectedSession);
+
+      const { data: packages } = await supabase
+        .from('class_packages')
+        .select('id')
+        .eq('user_id', user.id)
+        .limit(1);
+      const hasPackages = packages && packages.length > 0;
+
       // Update booking status to cancelled
       const { error } = await supabase
         .from('bookings')
@@ -219,7 +284,19 @@ export default function ReservarPage() {
 
       if (error) throw error;
 
-      alert('Reservación cancelada exitosamente.');
+      // Restore class to package if applicable
+      if (withRefund && hasPackages) {
+        const { error: restoreError } = await supabase
+          .rpc('restore_class_to_package', { p_user_id: user.id });
+        if (restoreError) {
+          console.error('Could not restore class to package:', restoreError);
+        }
+      }
+
+      const msg = withRefund && hasPackages
+        ? 'Reservación cancelada. Tu clase ha sido devuelta a tu paquete.'
+        : 'Reservación cancelada.';
+      alert(msg);
       setShowCancelModal(false);
       setSelectedSession(null);
       fetchSessions();
@@ -238,7 +315,7 @@ export default function ReservarPage() {
     const sessionDateTime = new Date(year, month - 1, day, hours, minutes);
     const now = new Date();
     const hoursUntilSession = differenceInHours(sessionDateTime, now);
-    return hoursUntilSession >= 6;
+    return hoursUntilSession >= 8;
   };
 
   const getHoursUntilSession = (session: Session): number => {
@@ -279,12 +356,48 @@ export default function ReservarPage() {
     );
   }
 
+  // Block access entirely when no eligibility (after loading is done)
+  if (!authLoading && user && eligibility === 'none') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <div className="bg-white rounded-2xl shadow-md p-10 max-w-md w-full text-center">
+          <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-5">
+            <svg className="w-8 h-8 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-3">Sin clases disponibles</h2>
+          <p className="text-gray-600 mb-2">
+            Ya usaste tu clase muestra gratuita y no tienes ningún paquete activo o con clases restantes.
+          </p>
+          <p className="text-gray-500 text-sm mb-8">
+            Compra un paquete para seguir reservando clases.
+          </p>
+          <Link
+            href="/clases"
+            className="block w-full bg-[#8B9D83] hover:bg-[#7a8c73] text-white py-3 rounded-full font-semibold transition"
+          >
+            Ver paquetes
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">Reservar Clase</h1>
+          {eligibility === 'first_class' && (
+            <div className="inline-flex items-center gap-2 bg-olive-100 border border-olive-300 text-olive-800 px-5 py-2 rounded-full text-sm font-medium mb-3">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4H5z" />
+              </svg>
+              Estás reservando tu clase muestra gratuita
+            </div>
+          )}
           <p className="text-lg text-gray-600">Selecciona una sesión disponible</p>
         </div>
 
@@ -342,11 +455,15 @@ export default function ReservarPage() {
                         const availableSpots = getAvailableSpots(session);
                         const isFull = availableSpots <= 0;
                         const isBooked = isSessionBooked(session.id);
+                        const [sy, sm, sd] = session.date.split('-').map(Number);
+                        const [sh, smin] = session.time.split(':').map(Number);
+                        const isPast = new Date(sy, sm - 1, sd, sh, smin) <= new Date();
 
                         return (
                           <button
                             key={session.id}
                             onClick={() => {
+                              if (isPast) return;
                               setSelectedSession(session);
                               if (isBooked) {
                                 setShowCancelModal(true);
@@ -354,9 +471,11 @@ export default function ReservarPage() {
                                 setShowBookingModal(true);
                               }
                             }}
-                            disabled={isFull && !isBooked}
+                            disabled={(isFull && !isBooked) || isPast}
                             className={`w-full text-left p-3 rounded-lg text-sm transition ${
-                              isBooked
+                              isPast
+                                ? 'bg-gray-50 text-gray-300 cursor-not-allowed'
+                                : isBooked
                                 ? 'bg-green-100 border-2 border-green-500 cursor-pointer hover:bg-green-200'
                                 : isFull
                                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
@@ -370,7 +489,9 @@ export default function ReservarPage() {
                               {session.time} • {session.duration_minutes} min
                             </div>
                             <div className="text-xs mt-1">
-                              {isBooked ? (
+                              {isPast ? (
+                                <span className="text-gray-400">Pasada</span>
+                              ) : isBooked ? (
                                 <span className="text-green-600 font-semibold">✓ Reservado</span>
                               ) : isFull ? (
                                 <span className="text-red-500">Lleno</span>
@@ -392,7 +513,7 @@ export default function ReservarPage() {
         {/* Legend */}
         <div className="bg-white rounded-lg shadow-md p-6">
           <h3 className="font-semibold mb-4">Leyenda</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="flex items-center">
               <div className="w-4 h-4 bg-white border border-gray-200 rounded mr-2"></div>
               <span className="text-sm">Disponible</span>
@@ -404,6 +525,10 @@ export default function ReservarPage() {
             <div className="flex items-center">
               <div className="w-4 h-4 bg-gray-100 rounded mr-2"></div>
               <span className="text-sm">Lleno</span>
+            </div>
+            <div className="flex items-center">
+              <div className="w-4 h-4 bg-gray-50 border border-gray-200 rounded mr-2"></div>
+              <span className="text-sm text-gray-400">Pasada</span>
             </div>
           </div>
         </div>
@@ -487,7 +612,7 @@ export default function ReservarPage() {
               <div className="bg-gray-50 rounded-lg p-4 mb-6">
                 <h3 className="font-semibold mb-2">Política de cancelación</h3>
                 <p className="text-sm text-gray-600">
-                  <strong>Moderada:</strong> Podrás cancelar hasta 6 horas antes del inicio de la sesión para recibir un reembolso.
+                  <strong>Moderada:</strong> Podrás cancelar hasta 8 horas antes del inicio de la sesión para recibir un reembolso.
                 </p>
               </div>
 
@@ -561,7 +686,7 @@ export default function ReservarPage() {
                         Cancelación sin reembolso
                       </p>
                       <p className="text-red-700 text-sm">
-                        Esta clase no podrá ser reembolsada a tus sesiones debido a la hora de la cancelación. Faltan menos de 6 horas para la clase.
+                        Esta clase no podrá ser reembolsada a tus sesiones debido a la hora de la cancelación. Faltan menos de 8 horas para la clase.
                       </p>
                     </div>
                   </div>
