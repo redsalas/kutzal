@@ -73,6 +73,8 @@ export default function LoginPage() {
 
           // Show health form before finishing registration
           if (userId) {
+            // Sign in immediately so auth.uid() is available for the health form RLS insert
+            await signIn(email, password);
             setPendingUserId(userId);
             setShowHealthForm(true);
           } else {
@@ -107,6 +109,7 @@ export default function LoginPage() {
     setPendingUserId(null);
     resetForm();
     setSuccessMessage('¡Cuenta creada! Por favor verifica tu correo electrónico para activar tu cuenta.');
+    router.push('/');
   };
 
   const handleHealthFormClose = () => {
@@ -115,6 +118,7 @@ export default function LoginPage() {
     setPendingUserId(null);
     resetForm();
     setSuccessMessage('¡Cuenta creada! Por favor verifica tu correo electrónico.');
+    router.push('/');
   };
 
   return (
