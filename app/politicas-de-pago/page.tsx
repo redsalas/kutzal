@@ -27,6 +27,10 @@ const policies = [
     title: 'Paquetes',
     body: 'Los paquetes son personales e intransferibles y no son reembolsables.',
   },
+  {
+    title: 'Pagos y seguridad',
+    body: 'Los pagos realizados en nuestro sitio son procesados de forma segura por Stripe, nuestro proveedor de servicios de pago. Kutzal Studio no almacena, procesa ni tiene acceso a los datos completos de tu tarjeta bancaria. La información de pago es ingresada y gestionada directamente a través de la infraestructura segura de Stripe.',
+  }
 ];
 
 export default function PoliticasDePagoPage() {

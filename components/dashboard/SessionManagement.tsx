@@ -1,6 +1,9 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { addHours } from 'date-fns';
 import { supabase } from '@/lib/supabase';
 import { useProfile } from '@/hooks/useProfile';
 
@@ -55,6 +58,7 @@ export default function SessionManagement() {
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingSession, setEditingSession] = useState<Session | null>(null);
+  const [viewingSession, setViewingSession] = useState<Session | null>(null);
 
   // Filter state
   const [filterMode, setFilterMode] = useState<'all' | 'day' | 'week'>('all');
@@ -76,6 +80,22 @@ export default function SessionManagement() {
 
       if (sessionsError) throw sessionsError;
 
+      // Fetch real confirmed booking counts to override the stale current_bookings column
+      const { data: bookingCounts } = await supabase
+        .from('bookings')
+        .select('session_id')
+        .eq('status', 'confirmed');
+
+      const countMap: Record<string, number> = {};
+      for (const row of bookingCounts || []) {
+        countMap[row.session_id] = (countMap[row.session_id] || 0) + 1;
+      }
+
+      const sessionsWithRealCounts = (sessionsData || []).map((s) => ({
+        ...s,
+        current_bookings: countMap[s.id] ?? 0,
+      }));
+
       const { data: typesData, error: typesError } = await supabase
         .from('session_types')
         .select('*')
@@ -91,7 +111,7 @@ export default function SessionManagement() {
 
       if (coachesError) throw coachesError;
 
-      setSessions(sessionsData || []);
+      setSessions(sessionsWithRealCounts);
       setSessionTypes(typesData || []);
       setCoaches(coachesData || []);
     } catch (error) {
@@ -303,6 +323,12 @@ export default function SessionManagement() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                       <button
+                        onClick={() => setViewingSession(session)}
+                        className="text-blue-600 hover:text-blue-900"
+                      >
+                        Ver
+                      </button>
+                      <button
                         onClick={() => setEditingSession(session)}
                         className="text-olive-600 hover:text-olive-900"
                       >
@@ -322,6 +348,15 @@ export default function SessionManagement() {
           </table>
         </div>
       </div>
+
+      {/* View Detail Modal */}
+      {viewingSession && (
+        <SessionDetailModal
+          session={viewingSession}
+          onClose={() => setViewingSession(null)}
+          onRefresh={fetchData}
+        />
+      )}
 
       {/* Create/Edit Modal */}
       {(showCreateModal || editingSession) && (
@@ -679,6 +714,369 @@ function SessionModal({ session, sessionTypes, coaches, onClose, onSave }: Sessi
         </form>
       </div>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// SessionDetailModal — mirrors CalendarView's EventDetailModal
+// ---------------------------------------------------------------------------
+
+interface Booking {
+  id: string;
+  user_id: string;
+  status: string;
+  created_at: string;
+  profiles: { full_name: string; email: string };
+}
+
+interface SessionDetailModalProps {
+  session: Session;
+  onClose: () => void;
+  onRefresh: () => void;
+}
+
+function SessionDetailModal({ session, onClose, onRefresh }: SessionDetailModalProps) {
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [loadingBookings, setLoadingBookings] = useState(true);
+  const [showRescheduleModal, setShowRescheduleModal] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [availableSessions, setAvailableSessions] = useState<Session[]>([]);
+
+  const fetchBookings = async () => {
+    try {
+      setLoadingBookings(true);
+      const { data, error } = await supabase
+        .from('bookings')
+        .select(`
+          id,
+          user_id,
+          status,
+          created_at,
+          profiles:user_id (full_name, email)
+        `)
+        .eq('session_id', session.id)
+        .eq('status', 'confirmed')
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const transformed = (data || []).map((item: any) => ({
+        id: item.id,
+        user_id: item.user_id,
+        status: item.status,
+        created_at: item.created_at,
+        profiles: Array.isArray(item.profiles) ? item.profiles[0] : item.profiles,
+      }));
+      setBookings(transformed);
+    } catch (err) {
+      console.error('Error fetching bookings:', err);
+    } finally {
+      setLoadingBookings(false);
+    }
+  };
+
+  useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
+    fetchBookings();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session.id]);
+
+  const fetchAvailableSessions = async () => {
+    try {
+      const minDateTime = addHours(new Date(), 8);
+      const minDate = format(minDateTime, 'yyyy-MM-dd');
+      const minTime = format(minDateTime, 'HH:mm:ss');
+
+      const { data, error } = await supabase
+        .from('sessions')
+        .select(`*, session_types (name), profiles (full_name)`)
+        .eq('status', 'scheduled')
+        .neq('id', session.id)
+        .or(`date.gt.${minDate},and(date.eq.${minDate},time.gte.${minTime})`)
+        .order('date', { ascending: true })
+        .order('time', { ascending: true })
+        .limit(20);
+
+      if (error) throw error;
+      setAvailableSessions(
+        (data || []).filter((s) => s.current_bookings < s.max_capacity)
+      );
+    } catch (err) {
+      console.error('Error fetching available sessions:', err);
+    }
+  };
+
+  const handleCancelBooking = async (bookingId: string, userId: string) => {
+    if (!confirm('¿Estás seguro de que quieres cancelar esta reservación?')) return;
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('first_class_taken')
+        .eq('id', userId)
+        .single();
+
+      const { data: packages } = await supabase
+        .from('class_packages')
+        .select('id')
+        .eq('user_id', userId)
+        .limit(1);
+
+      const wasFirstClass = profile?.first_class_taken && !(packages && packages.length > 0);
+
+      const { error } = await supabase
+        .from('bookings')
+        .update({ status: 'cancelled' })
+        .eq('id', bookingId);
+
+      if (error) throw error;
+
+      if (!wasFirstClass) {
+        const { error: restoreError } = await supabase
+          .rpc('restore_class_to_package', { p_user_id: userId });
+        if (restoreError) console.error('Could not restore class to package:', restoreError);
+      }
+
+      alert('Reservación cancelada exitosamente');
+      fetchBookings();
+      onRefresh();
+    } catch (err) {
+      console.error('Error cancelling booking:', err);
+      alert('Error al cancelar la reservación');
+    }
+  };
+
+  const openRescheduleModal = async (booking: Booking) => {
+    setSelectedBooking(booking);
+    await fetchAvailableSessions();
+    setShowRescheduleModal(true);
+  };
+
+  const handleReschedule = async (newSessionId: string) => {
+    if (!selectedBooking) return;
+    try {
+      const newSession = availableSessions.find((s) => s.id === newSessionId);
+      if (!newSession) { alert('Error: No se encontró la sesión seleccionada'); return; }
+
+      const { data: existing, error: checkError } = await supabase
+        .from('bookings')
+        .select('id')
+        .eq('session_id', newSessionId)
+        .eq('user_id', selectedBooking.user_id)
+        .eq('status', 'confirmed')
+        .neq('id', selectedBooking.id);
+
+      if (checkError) throw checkError;
+      if (existing && existing.length > 0) {
+        alert('Este usuario ya tiene una reservación para la sesión seleccionada. Por favor elige otra sesión.');
+        return;
+      }
+
+      const { error } = await supabase
+        .from('bookings')
+        .update({ session_id: newSessionId })
+        .eq('id', selectedBooking.id);
+
+      if (error) throw error;
+
+      try {
+        const [year, month, day] = newSession.date.split('-').map(Number);
+        const sessionDate = new Date(year, month - 1, day);
+        await fetch('/api/email/reservation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: selectedBooking.profiles.email,
+            reservationDetails: {
+              className: newSession.custom_type_name || newSession.session_types.name,
+              date: format(sessionDate, "EEEE, d 'de' MMMM 'de' yyyy", { locale: es }),
+              time: newSession.time,
+              instructor: newSession.profiles.full_name,
+              location: 'Kutzal Pilates Studio',
+              isRescheduled: true,
+              previousDate: format(new Date(session.date), "EEEE, d 'de' MMMM 'de' yyyy", { locale: es }),
+              previousTime: session.time,
+            },
+          }),
+        });
+      } catch (emailError) {
+        console.error('Error sending reschedule email:', emailError);
+      }
+
+      alert('Reservación reprogramada exitosamente. Se ha enviado un correo de confirmación al usuario.');
+      setShowRescheduleModal(false);
+      setSelectedBooking(null);
+      fetchBookings();
+      onRefresh();
+    } catch (err) {
+      console.error('Error rescheduling booking:', err);
+      alert('Error al reprogramar la reservación');
+    }
+  };
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xl font-display text-grey-800">Detalles de la Sesión</h3>
+            <button onClick={onClose} className="text-grey-400 hover:text-grey-600 text-2xl">×</button>
+          </div>
+
+          <div className="space-y-4 mb-6">
+            <div>
+              <label className="text-sm font-medium text-grey-500">Tipo de Clase</label>
+              <p className="text-grey-900">{session.custom_type_name || session.session_types.name}</p>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-grey-500">Coach</label>
+              <p className="text-grey-900">{session.profiles.full_name}</p>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium text-grey-500">Fecha</label>
+                <p className="text-grey-900">{format(new Date(session.date + 'T00:00:00'), 'dd/MM/yyyy', { locale: es })}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-grey-500">Hora</label>
+                <p className="text-grey-900">{session.time}</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium text-grey-500">Duración</label>
+                <p className="text-grey-900">{session.duration_minutes} minutos</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-grey-500">Capacidad</label>
+                <p className="text-grey-900">
+                  {loadingBookings ? session.current_bookings : bookings.length}/{session.max_capacity}
+                </p>
+              </div>
+            </div>
+            {!loadingBookings && (() => {
+              const spots = session.max_capacity - bookings.length;
+              return (
+                <div className={`p-4 rounded-lg ${spots > 0 ? 'bg-green-50' : 'bg-red-50'}`}>
+                  <p className={`text-center font-medium ${spots > 0 ? 'text-green-800' : 'text-red-800'}`}>
+                    {spots > 0
+                      ? `${spots} lugar${spots !== 1 ? 'es' : ''} disponible${spots !== 1 ? 's' : ''}`
+                      : 'Sesión llena'}
+                  </p>
+                </div>
+              );
+            })()}
+          </div>
+
+          <div className="border-t pt-4">
+            <h4 className="font-semibold text-grey-800 mb-3">Usuarios Inscritos ({bookings.length})</h4>
+            {loadingBookings ? (
+              <div className="text-center py-4">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-olive-400 mx-auto"></div>
+              </div>
+            ) : bookings.length === 0 ? (
+              <p className="text-grey-500 text-center py-4">No hay usuarios inscritos</p>
+            ) : (
+              <div className="space-y-2">
+                {bookings.map((booking) => (
+                  <div key={booking.id} className="flex items-center justify-between p-3 bg-grey-50 rounded-lg">
+                    <div>
+                      <p className="font-medium text-grey-900">{booking.profiles.full_name}</p>
+                      <p className="text-sm text-grey-500">{booking.profiles.email}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => openRescheduleModal(booking)}
+                        className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition"
+                      >
+                        Reprogramar
+                      </button>
+                      <button
+                        onClick={() => handleCancelBooking(booking.id, booking.user_id)}
+                        className="px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200 transition"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={onClose}
+            className="w-full mt-6 bg-olive-400 hover:bg-olive-500 text-white py-2 rounded-lg transition-colors"
+          >
+            Cerrar
+          </button>
+        </div>
+      </div>
+
+      {/* Reschedule Modal */}
+      {showRescheduleModal && selectedBooking && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-semibold">Reprogramar Reservación</h3>
+              <button
+                onClick={() => { setShowRescheduleModal(false); setSelectedBooking(null); }}
+                className="text-grey-400 hover:text-grey-600 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+              <p className="text-sm text-blue-800"><strong>Usuario:</strong> {selectedBooking.profiles.full_name}</p>
+              <p className="text-sm text-blue-800">
+                <strong>Sesión actual:</strong> {session.custom_type_name || session.session_types.name} - {format(new Date(session.date + 'T00:00:00'), 'dd/MM/yyyy')} {session.time}
+              </p>
+            </div>
+
+            <h4 className="font-semibold mb-3">Sesiones Disponibles (mínimo 8 horas desde ahora)</h4>
+            {availableSessions.length === 0 ? (
+              <p className="text-grey-500 text-center py-8">No hay sesiones disponibles para reprogramar</p>
+            ) : (
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {availableSessions.map((availSession) => (
+                  <button
+                    key={availSession.id}
+                    onClick={() => handleReschedule(availSession.id)}
+                    className="w-full text-left p-4 border border-grey-200 rounded-lg hover:border-olive-400 hover:bg-olive-50 transition"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="font-semibold text-grey-900">
+                          {availSession.custom_type_name || availSession.session_types.name}
+                        </p>
+                        <p className="text-sm text-grey-600">
+                          {format(new Date(availSession.date + 'T00:00:00'), "EEEE, d 'de' MMMM", { locale: es })}
+                        </p>
+                        <p className="text-sm text-grey-600">{availSession.time} • {availSession.duration_minutes} min</p>
+                        <p className="text-sm text-grey-500">Coach: {availSession.profiles.full_name}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-medium text-green-600">
+                          {availSession.max_capacity - availSession.current_bookings} lugares
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <button
+              onClick={() => { setShowRescheduleModal(false); setSelectedBooking(null); }}
+              className="w-full mt-4 bg-grey-200 hover:bg-grey-300 text-grey-800 py-2 rounded-lg transition-colors"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

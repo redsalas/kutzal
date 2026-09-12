@@ -2,7 +2,7 @@ import { Resend } from 'resend';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://kutzal.mx';
 
 // Email clients require a publicly accessible HTTPS URL for images.
 // Make sure NEXT_PUBLIC_APP_URL is set to your production domain in .env

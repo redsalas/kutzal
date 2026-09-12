@@ -17,7 +17,7 @@ export interface UserProfile {
 }
 
 export function useProfile() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -52,8 +52,12 @@ export function useProfile() {
 
   useEffect(() => {
     let cancelled = false;
-    
+
     const loadProfile = async () => {
+      // Wait for auth to finish its initial session check before concluding
+      // there is no user — otherwise a page refresh redirects to /login.
+      if (authLoading) return;
+
       if (!user) {
         if (!cancelled) {
           setProfile(null);
@@ -105,7 +109,7 @@ export function useProfile() {
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [user, authLoading]);
 
   const updateProfile = async (updates: Partial<UserProfile>) => {
     if (!user) return { error: 'No user logged in' };
