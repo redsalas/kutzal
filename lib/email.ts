@@ -7,6 +7,12 @@ function getTransporter() {
     host: process.env.SMTP_HOST || 'smtp.hostinger.com',
     port: parseInt(process.env.SMTP_PORT || '465', 10),
     secure: process.env.SMTP_SECURE !== 'false', // true for port 465 (SSL)
+    requireTLS: true,
+    tls: {
+      ciphers: "SSLv3"
+    },
+    debug: true,
+    connectionTimeout: 15000,
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
