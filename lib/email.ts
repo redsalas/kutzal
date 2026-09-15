@@ -1,8 +1,18 @@
-import { Resend } from 'resend';
-
-const resend = new Resend(process.env.RESEND_API_KEY);
+import nodemailer from 'nodemailer';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://kutzal.mx';
+
+function getTransporter() {
+  return nodemailer.createTransport({
+    host: process.env.SMTP_HOST || 'smtp.hostinger.com',
+    port: parseInt(process.env.SMTP_PORT || '465', 10),
+    secure: process.env.SMTP_SECURE !== 'false', // true for port 465 (SSL)
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+  });
+}
 
 // Email clients require a publicly accessible HTTPS URL for images.
 // Make sure NEXT_PUBLIC_APP_URL is set to your production domain in .env
@@ -35,18 +45,36 @@ export interface EmailOptions {
 
 export async function sendEmail({ to, subject, html }: EmailOptions) {
   try {
-    const data = await resend.emails.send({
-      from: process.env.EMAIL_FROM || 'Kutzal <onboarding@resend.dev>',
-      to: [to],
+    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+      console.error('SMTP credentials missing: SMTP_USER or SMTP_PASS not set in environment.');
+      return { success: false, error: 'SMTP credentials not configured (SMTP_USER or SMTP_PASS missing)' };
+    }
+
+    const transporter = getTransporter();
+    // Use SMTP_USER as sender address to satisfy strict SMTP sender verification
+    const senderEmail = process.env.SMTP_USER;
+    const from = process.env.EMAIL_FROM && process.env.EMAIL_FROM.includes(senderEmail)
+      ? process.env.EMAIL_FROM
+      : `"Kutzal Studio" <${senderEmail}>`;
+
+    const info = await transporter.sendMail({
+      from,
+      to,
       subject,
       html,
     });
 
-    return { success: true, data };
-  } catch (error) {
-    console.error('Error sending email:', error);
-    return { success: false, error };
+    return { success: true, data: { messageId: info.messageId } };
+  } catch (error: any) {
+    console.error('Error sending email via SMTP:', error);
+    return { success: false, error: error?.message || String(error) };
   }
+}
+
+export async function sendPasswordResetEmail(email: string, resetLink: string, userName?: string) {
+  const subject = 'Restablecer tu contraseña — Kutzal';
+  const html = getPasswordResetEmailTemplate(resetLink, userName || email);
+  return sendEmail({ to: email, subject, html });
 }
 
 // Email notification functions
@@ -242,6 +270,32 @@ function getPackagePurchaseEmailTemplate(details: {
           <p style="text-align:center;margin-top:16px;">
             <a href="${APP_URL}/perfil" style="color:#4a5c3f;font-size:13px;">Ver mis paquetes →</a>
           </p>
+        </td></tr>
+        <tr><td>${emailFooter()}</td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
+function getPasswordResetEmailTemplate(resetLink: string, userName: string): string {
+  return `<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background-color:#f7f8fa;font-family:'Helvetica Neue',Arial,sans-serif;color:#1f2328;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f7f8fa;padding:32px 16px;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
+        <tr><td>${emailHeader()}</td></tr>
+        <tr><td style="padding:40px;">
+          <h2 style="margin:0 0 16px;font-size:22px;color:#1f2328;">Restablecer Contraseña</h2>
+          <p style="margin:0 0 16px;color:#57606a;line-height:1.7;">Hola ${userName}, recibimos una solicitud para restablecer la contraseña de tu cuenta en Kutzal.</p>
+          <p style="margin:0 0 24px;color:#57606a;line-height:1.7;">Haz clic en el siguiente botón para crear una nueva contraseña. Este enlace expirará pronto.</p>
+          <div style="text-align:center;margin:32px 0;">
+            <a href="${resetLink}" style="display:inline-block;padding:14px 32px;background-color:#4a5c3f;color:#ffffff;text-decoration:none;border-radius:24px;font-weight:600;font-size:15px;">Restablecer mi contraseña</a>
+          </div>
+          <p style="margin:24px 0 0;font-size:13px;color:#8c959f;line-height:1.5;">Si no solicitaste este cambio, puedes ignorar este correo de manera segura.</p>
         </td></tr>
         <tr><td>${emailFooter()}</td></tr>
       </table>
