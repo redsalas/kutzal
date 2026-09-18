@@ -144,6 +144,24 @@ function LoginForm() {
             console.error('Failed to send welcome email:', emailError);
           }
 
+          // Push notification to admins/coaches about new registered user
+          try {
+            await fetch('/api/push/send', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                target: 'admins_and_coaches',
+                payload: {
+                  title: '👤 Nuevo Usuario Registrado',
+                  body: `${fullName} (${email}) se acaba de registrar en Kutzal.`,
+                  url: '/dashboard',
+                },
+              }),
+            });
+          } catch (pushErr) {
+            console.error('Failed to send push for new user:', pushErr);
+          }
+
           // Show health form before finishing registration
           if (userId) {
             // Sign in immediately so auth.uid() is available for the health form RLS insert
@@ -191,7 +209,6 @@ function LoginForm() {
     setPendingUserId(null);
     resetForm();
     setSuccessMessage('¡Cuenta creada! Por favor verifica tu correo electrónico.');
-    router.push('/');
   };
 
   return (

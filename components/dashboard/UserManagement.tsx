@@ -288,6 +288,25 @@ function UserPackagesModal({ user, onClose }: UserPackagesModalProps) {
 
       if (error) throw error;
 
+      // Send push notification to user about assigned package
+      try {
+        await fetch('/api/push/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            target: 'user',
+            userId: user.id,
+            payload: {
+              title: '🎉 Nuevo Paquete Asignado',
+              body: `Se ha activado tu ${name}. ¡Ya puedes reservar tus clases!`,
+              url: '/perfil',
+            },
+          }),
+        });
+      } catch (pushErr) {
+        console.error('Error sending push for assigned package:', pushErr);
+      }
+
       setShowAddForm(false);
       setAddForm({ packageId: 'pkg_8', customClasses: '', customCost: '', useCustom: false });
       await fetchPackages();
@@ -429,7 +448,8 @@ function UserPackagesModal({ user, onClose }: UserPackagesModalProps) {
                 const sl = statusLabel[pkg.status] ?? { label: pkg.status, cls: 'bg-grey-100 text-grey-600' };
                 const expDate = new Date(pkg.expires_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
                 const buyDate = new Date(pkg.purchased_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
-                const pct = Math.round((pkg.remaining_classes / pkg.total_classes) * 100);
+                const isUnlimited = pkg.total_classes >= 9999 || pkg.package_name.toLowerCase().includes('unlimited');
+                const pct = isUnlimited ? 100 : Math.round((pkg.remaining_classes / pkg.total_classes) * 100);
 
                 return (
                   <div key={pkg.id} className="border border-grey-200 rounded-xl p-4">
@@ -451,19 +471,26 @@ function UserPackagesModal({ user, onClose }: UserPackagesModalProps) {
                       </div>
                     </div>
 
-                    {/* Progress bar */}
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-xs text-grey-500">
-                        <span>{pkg.remaining_classes} clases restantes</span>
-                        <span>{pkg.total_classes} totales</span>
+                    {/* Progress or Unlimited Badge */}
+                    {isUnlimited ? (
+                      <div className="bg-olive-50 border border-olive-200 rounded-lg px-3 py-2 text-xs text-olive-800 font-medium flex justify-between items-center">
+                        <span>✨ Clases ilimitadas</span>
+                        <span>Válido hasta {expDate}</span>
                       </div>
-                      <div className="w-full bg-grey-100 rounded-full h-2">
-                        <div
-                          className="bg-olive-500 h-2 rounded-full transition-all"
-                          style={{ width: `${pct}%` }}
-                        />
+                    ) : (
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-xs text-grey-500">
+                          <span>{pkg.remaining_classes} clases restantes</span>
+                          <span>{pkg.total_classes} totales</span>
+                        </div>
+                        <div className="w-full bg-grey-100 rounded-full h-2">
+                          <div
+                            className="bg-olive-500 h-2 rounded-full transition-all"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 );
               })}
@@ -966,4 +993,4 @@ function MedRow({ label, value, detail }: { label: string; value: boolean; detai
   );
 }
 
-// Made with Bob
+

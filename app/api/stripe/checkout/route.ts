@@ -28,7 +28,9 @@ export async function POST(request: NextRequest) {
             unit_amount: pkg.price * 100, // Stripe uses cents
             product_data: {
               name: pkg.name,
-              description: `${pkg.classes} clase${pkg.classes > 1 ? 's' : ''} de Pilates en Kutzal Studio. Válido por 1 mes.`,
+              description: pkg.isUnlimited
+                ? 'Clases ilimitadas de Pilates en Kutzal Studio durante 1 mes.'
+                : `${pkg.classes} clase${pkg.classes > 1 ? 's' : ''} de Pilates en Kutzal Studio. Válido por 1 mes.`,
             },
           },
           quantity: 1,
@@ -40,6 +42,7 @@ export async function POST(request: NextRequest) {
         packageName: pkg.name,
         totalClasses: pkg.classes.toString(),
         totalCost: pkg.price.toString(),
+        isUnlimited: pkg.isUnlimited ? 'true' : 'false',
       },
       success_url: `${origin}/compra-exitosa?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/clases?cancelled=true`,

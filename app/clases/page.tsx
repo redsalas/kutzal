@@ -170,9 +170,20 @@ export default function ClasesPage() {
                 {PACKAGE_OPTIONS.map((pkg) => (
                   <div
                     key={pkg.id}
-                    className="flex justify-between items-center px-6 py-4 rounded-2xl border bg-grey-50 border-grey-200 text-grey-800"
+                    className={`flex justify-between items-center px-6 py-4 rounded-2xl border ${
+                      pkg.isUnlimited
+                        ? 'bg-olive-50/70 border-olive-400 text-grey-900 shadow-sm'
+                        : 'bg-grey-50 border-grey-200 text-grey-800'
+                    }`}
                   >
-                    <span className="font-medium text-lg text-grey-800">{pkg.name}</span>
+                    <div>
+                      <span className="font-medium text-lg text-grey-800">{pkg.name}</span>
+                      {pkg.isUnlimited && (
+                        <span className="block text-xs font-semibold text-olive-700 uppercase tracking-wider">
+                          Clases ilimitadas · 1 mes
+                        </span>
+                      )}
+                    </div>
                     <div className="flex items-center gap-4">
                       <span className="text-xl font-bold text-olive-700">{pkg.priceDisplay}</span>
                       {user && (
@@ -341,7 +352,12 @@ export default function ClasesPage() {
                           : 'border-grey-200 hover:border-olive-300'
                       }`}
                     >
-                      <span className="font-medium text-grey-800">{pkg.name}</span>
+                      <div className="text-left">
+                        <span className="font-medium text-grey-800 block">{pkg.name}</span>
+                        {pkg.isUnlimited && (
+                          <span className="text-xs text-olive-700 font-medium">Clases ilimitadas durante 1 mes</span>
+                        )}
+                      </div>
                       <span className="font-bold text-olive-700">{pkg.priceDisplay} MXN</span>
                     </button>
                   ))}

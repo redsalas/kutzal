@@ -19,6 +19,7 @@ interface SessionType {
 interface Coach {
   id: string;
   full_name: string;
+  email?: string;
 }
 
 interface Session {
@@ -40,6 +41,7 @@ interface Booking {
   id: string;
   session_id: string;
   status: string;
+  package_id?: string | null;
 }
 
 export default function ReservarPage() {
@@ -90,7 +92,7 @@ export default function ReservarPage() {
         .select(`
           *,
           session_types (id, name, description),
-          profiles:coach_id (id, full_name)
+          profiles:coach_id (id, full_name, email)
         `)
         .eq('status', 'scheduled')
         .gte('date', startDate)
@@ -112,7 +114,7 @@ export default function ReservarPage() {
     try {
       const { data, error } = await supabase
         .from('bookings')
-        .select('id, session_id, status')
+        .select('id, session_id, status, package_id')
         .eq('user_id', user.id)
         .eq('status', 'confirmed');
 
@@ -168,30 +170,63 @@ export default function ReservarPage() {
         return;
       }
 
-      // Create booking
+      // Validate date validity and consume eligibility for package
+      let usedPackageId: string | null = null;
+      if (eligibility === 'package') {
+        const { data: canBookDate, error: checkErr } = await supabase.rpc('can_user_book', {
+          p_user_id: user.id,
+          p_session_date: selectedSession.date,
+        });
+
+        if (checkErr) throw checkErr;
+        if (canBookDate !== 'package') {
+          alert('Tu paquete habrá expirado para la fecha de esta clase. Adquiere un nuevo paquete o elige una clase antes del vencimiento de tu paquete.');
+          return;
+        }
+
+        const { data: pkgId, error: consumeErr } = await supabase.rpc('consume_class_from_package', {
+          p_user_id: user.id,
+          p_session_date: selectedSession.date,
+        });
+        if (consumeErr) throw consumeErr;
+        if (!pkgId) {
+          alert('No tienes clases disponibles válidas para la fecha de esta sesión.');
+          return;
+        }
+        usedPackageId = pkgId as string | null;
+      }
+
+      // Create booking with package_id reference
       const { data: booking, error: bookingError } = await supabase
         .from('bookings')
         .insert({
           session_id: selectedSession.id,
           user_id: user.id,
-          status: 'confirmed'
+          status: 'confirmed',
+          package_id: usedPackageId,
         })
         .select()
         .single();
 
-      if (bookingError) throw bookingError;
+      if (bookingError) {
+        // Rollback package deduction if booking insert failed
+        if (usedPackageId) {
+          await supabase.rpc('restore_class_to_package', {
+            p_user_id: user.id,
+            p_package_id: usedPackageId,
+          });
+        }
+        throw bookingError;
+      }
 
-      // Consume eligibility after successful booking
+      // Finalize eligibility state
       if (eligibility === 'first_class') {
-        // Mark first class as taken
         await supabase
           .from('profiles')
           .update({ first_class_taken: true })
           .eq('id', user.id);
         setEligibility('none');
       } else if (eligibility === 'package') {
-        // Deduct one class from active package
-        await supabase.rpc('consume_class_from_package', { p_user_id: user.id });
         // Refresh eligibility in case package is now exhausted
         const { data } = await supabase.rpc('can_user_book', { p_user_id: user.id });
         if (data) setEligibility(data as BookingEligibility);
@@ -204,7 +239,10 @@ export default function ReservarPage() {
         .eq('id', user.id)
         .single();
 
-      // Send confirmation email
+      // Send confirmation email to user & notification email to coach
+      const classFormattedDate = format(parseISO(selectedSession.date), "EEEE, d 'de' MMMM 'de' yyyy", { locale: es });
+      const classTypeName = selectedSession.custom_type_name || selectedSession.session_types?.name || 'Clase';
+
       if (profile?.email) {
         try {
           const emailResponse = await fetch('/api/email/reservation', {
@@ -213,8 +251,8 @@ export default function ReservarPage() {
             body: JSON.stringify({
               email: profile.email,
               reservationDetails: {
-                className: selectedSession.custom_type_name || selectedSession.session_types?.name || 'Clase',
-                date: format(parseISO(selectedSession.date), "EEEE, d 'de' MMMM 'de' yyyy", { locale: es }),
+                className: classTypeName,
+                date: classFormattedDate,
                 time: selectedSession.time,
                 instructor: selectedSession.profiles?.full_name || 'Instructor',
                 location: 'Kutzal Pilates Studio'
@@ -237,6 +275,50 @@ export default function ReservarPage() {
         }
       } else {
         alert('¡Reservación confirmada! No se pudo enviar el correo porque no hay email en tu perfil.');
+      }
+
+      // Notify Coach via email and push
+      if (selectedSession.profiles?.email) {
+        try {
+          await fetch('/api/email/coach-notification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              coachEmail: selectedSession.profiles.email,
+              type: 'booking',
+              details: {
+                coachName: selectedSession.profiles.full_name,
+                clientName: profile?.full_name || 'Usuario',
+                clientEmail: profile?.email || user.email || '',
+                className: classTypeName,
+                date: classFormattedDate,
+                time: selectedSession.time,
+                location: 'Kutzal Pilates Studio',
+                actionBy: 'client'
+              }
+            })
+          });
+        } catch (coachEmailErr) {
+          console.error('Error notifying coach of new booking:', coachEmailErr);
+        }
+      }
+
+      // Send Push notification to Coach & Admins
+      try {
+        await fetch('/api/push/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            target: 'admins_and_coaches',
+            payload: {
+              title: `🧘 Nueva Reservación: ${classTypeName}`,
+              body: `${profile?.full_name || 'Un usuario'} reservó para ${classFormattedDate} a las ${selectedSession.time.slice(0, 5)} hrs.`,
+              url: '/dashboard',
+            },
+          }),
+        });
+      } catch (pushErr) {
+        console.error('Error sending push notification for booking:', pushErr);
       }
 
       setShowBookingModal(false);
@@ -266,15 +348,9 @@ export default function ReservarPage() {
 
       // Determine if this is eligible for a class refund:
       // - Must cancel at least 8 hours before the session (canCancelWithRefund)
-      // - Must NOT be the free first class (user has packages = paid booking)
+      // - Must be tied to a package or paid booking
       const withRefund = canCancelWithRefund(selectedSession);
-
-      const { data: packages } = await supabase
-        .from('class_packages')
-        .select('id')
-        .eq('user_id', user.id)
-        .limit(1);
-      const hasPackages = packages && packages.length > 0;
+      const isPaidBooking = !!booking.package_id;
 
       // Update booking status to cancelled
       const { error } = await supabase
@@ -284,16 +360,71 @@ export default function ReservarPage() {
 
       if (error) throw error;
 
-      // Restore class to package if applicable
-      if (withRefund && hasPackages) {
-        const { error: restoreError } = await supabase
-          .rpc('restore_class_to_package', { p_user_id: user.id });
+      // Restore class to specific package if applicable
+      if (withRefund && (isPaidBooking || booking.package_id === undefined)) {
+        const { error: restoreError } = await supabase.rpc('restore_class_to_package', {
+          p_user_id: user.id,
+          p_package_id: booking.package_id || null,
+        });
         if (restoreError) {
           console.error('Could not restore class to package:', restoreError);
         }
       }
 
-      const msg = withRefund && hasPackages
+      // Notify Coach of cancellation
+      if (selectedSession.profiles?.email) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('email, full_name')
+          .eq('id', user.id)
+          .single();
+
+        const classFormattedDate = format(parseISO(selectedSession.date), "EEEE, d 'de' MMMM 'de' yyyy", { locale: es });
+        const classTypeName = selectedSession.custom_type_name || selectedSession.session_types?.name || 'Clase';
+
+        try {
+          await fetch('/api/email/coach-notification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              coachEmail: selectedSession.profiles.email,
+              type: 'cancellation',
+              details: {
+                coachName: selectedSession.profiles.full_name,
+                clientName: profile?.full_name || 'Usuario',
+                clientEmail: profile?.email || user.email || '',
+                className: classTypeName,
+                date: classFormattedDate,
+                time: selectedSession.time,
+                location: 'Kutzal Pilates Studio',
+                actionBy: 'client'
+              }
+            })
+          });
+        } catch (coachEmailErr) {
+          console.error('Error notifying coach of cancellation:', coachEmailErr);
+        }
+
+        // Push notification to Coach & Admins
+        try {
+          await fetch('/api/push/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              target: 'admins_and_coaches',
+              payload: {
+                title: `✕ Cancelación: ${classTypeName}`,
+                body: `${profile?.full_name || 'Un usuario'} canceló su lugar para el ${classFormattedDate} a las ${selectedSession.time.slice(0, 5)} hrs.`,
+                url: '/dashboard',
+              },
+            }),
+          });
+        } catch (pushErr) {
+          console.error('Error sending push notification for cancel:', pushErr);
+        }
+      }
+
+      const msg = withRefund && isPaidBooking
         ? 'Reservación cancelada. Tu clase ha sido devuelta a tu paquete.'
         : 'Reservación cancelada.';
       alert(msg);
@@ -604,7 +735,6 @@ export default function ReservarPage() {
                 <h3 className="font-semibold mb-2">Reglas de la sesión</h3>
                 <ul className="space-y-1 text-sm text-gray-600">
                   <li>• Traer calcetines y toalla para el sudor</li>
-                  <li>• Traer agua</li>
                   <li>• Llegar 5 minutos antes</li>
                 </ul>
               </div>
@@ -719,4 +849,4 @@ export default function ReservarPage() {
   );
 }
 
-// Made with Bob
+

@@ -724,6 +724,7 @@ function SessionModal({ session, sessionTypes, coaches, onClose, onSave }: Sessi
 interface Booking {
   id: string;
   user_id: string;
+  package_id?: string | null;
   status: string;
   created_at: string;
   profiles: { full_name: string; email: string };
@@ -741,6 +742,9 @@ function SessionDetailModal({ session, onClose, onRefresh }: SessionDetailModalP
   const [showRescheduleModal, setShowRescheduleModal] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [availableSessions, setAvailableSessions] = useState<Session[]>([]);
+  const [rescheduleSearch, setRescheduleSearch] = useState('');
+  const [rescheduleDateFilter, setRescheduleDateFilter] = useState('');
+  const [loadingAvailableSessions, setLoadingAvailableSessions] = useState(false);
 
   const fetchBookings = async () => {
     try {
@@ -750,6 +754,7 @@ function SessionDetailModal({ session, onClose, onRefresh }: SessionDetailModalP
         .select(`
           id,
           user_id,
+          package_id,
           status,
           created_at,
           profiles:user_id (full_name, email)
@@ -764,6 +769,7 @@ function SessionDetailModal({ session, onClose, onRefresh }: SessionDetailModalP
       const transformed = (data || []).map((item: any) => ({
         id: item.id,
         user_id: item.user_id,
+        package_id: item.package_id,
         status: item.status,
         created_at: item.created_at,
         profiles: Array.isArray(item.profiles) ? item.profiles[0] : item.profiles,
@@ -784,46 +790,56 @@ function SessionDetailModal({ session, onClose, onRefresh }: SessionDetailModalP
 
   const fetchAvailableSessions = async () => {
     try {
-      const minDateTime = addHours(new Date(), 8);
-      const minDate = format(minDateTime, 'yyyy-MM-dd');
-      const minTime = format(minDateTime, 'HH:mm:ss');
+      setLoadingAvailableSessions(true);
+      const now = new Date();
+      const today = format(now, 'yyyy-MM-dd');
 
-      const { data, error } = await supabase
-        .from('sessions')
-        .select(`*, session_types (name), profiles (full_name)`)
-        .eq('status', 'scheduled')
-        .neq('id', session.id)
-        .or(`date.gt.${minDate},and(date.eq.${minDate},time.gte.${minTime})`)
-        .order('date', { ascending: true })
-        .order('time', { ascending: true })
-        .limit(20);
+      const [{ data: sessionData, error: sessionError }, { data: bookingCounts, error: countsError }] = await Promise.all([
+        supabase
+          .from('sessions')
+          .select(`*, session_types (name), profiles:coach_id (id, full_name, email)`)
+          .eq('status', 'scheduled')
+          .neq('id', session.id)
+          .gte('date', today)
+          .order('date', { ascending: true })
+          .order('time', { ascending: true }),
+        supabase
+          .from('bookings')
+          .select('session_id')
+          .eq('status', 'confirmed'),
+      ]);
 
-      if (error) throw error;
-      setAvailableSessions(
-        (data || []).filter((s) => s.current_bookings < s.max_capacity)
-      );
+      if (sessionError) throw sessionError;
+      if (countsError) console.error('Error fetching booking counts:', countsError);
+
+      const countMap: Record<string, number> = {};
+      for (const row of bookingCounts || []) {
+        countMap[row.session_id] = (countMap[row.session_id] || 0) + 1;
+      }
+
+      const futureSessions = (sessionData || [])
+        .map((s) => ({
+          ...s,
+          current_bookings: countMap[s.id] ?? 0,
+        }))
+        .filter((s) => {
+          const [year, month, day] = s.date.split('-').map(Number);
+          const [hours, minutes] = s.time.split(':').map(Number);
+          const sessionDateTime = new Date(year, month - 1, day, hours, minutes);
+          return sessionDateTime > now && (s.current_bookings < s.max_capacity);
+        });
+
+      setAvailableSessions(futureSessions);
     } catch (err) {
       console.error('Error fetching available sessions:', err);
+    } finally {
+      setLoadingAvailableSessions(false);
     }
   };
 
-  const handleCancelBooking = async (bookingId: string, userId: string) => {
+  const handleCancelBooking = async (bookingId: string, userId: string, packageId?: string | null) => {
     if (!confirm('¿Estás seguro de que quieres cancelar esta reservación?')) return;
     try {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('first_class_taken')
-        .eq('id', userId)
-        .single();
-
-      const { data: packages } = await supabase
-        .from('class_packages')
-        .select('id')
-        .eq('user_id', userId)
-        .limit(1);
-
-      const wasFirstClass = profile?.first_class_taken && !(packages && packages.length > 0);
-
       const { error } = await supabase
         .from('bookings')
         .update({ status: 'cancelled' })
@@ -831,10 +847,63 @@ function SessionDetailModal({ session, onClose, onRefresh }: SessionDetailModalP
 
       if (error) throw error;
 
-      if (!wasFirstClass) {
-        const { error: restoreError } = await supabase
-          .rpc('restore_class_to_package', { p_user_id: userId });
+      const targetPackageId = packageId !== undefined ? packageId : null;
+      if (packageId !== null) {
+        const { error: restoreError } = await supabase.rpc('restore_class_to_package', {
+          p_user_id: userId,
+          p_package_id: targetPackageId,
+        });
         if (restoreError) console.error('Could not restore class to package:', restoreError);
+      }
+
+      // Notify Coach of cancellation
+      const targetBooking = bookings.find((b) => b.id === bookingId);
+      if (session.profiles?.email) {
+        const [year, month, day] = session.date.split('-').map(Number);
+        const sessionDate = new Date(year, month - 1, day);
+        try {
+          await fetch('/api/email/coach-notification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              coachEmail: session.profiles.email,
+              type: 'cancellation',
+              details: {
+                coachName: session.profiles.full_name,
+                clientName: targetBooking?.profiles.full_name || 'Usuario',
+                clientEmail: targetBooking?.profiles.email || '',
+                className: session.custom_type_name || session.session_types?.name || 'Clase',
+                date: format(sessionDate, "EEEE, d 'de' MMMM 'de' yyyy", { locale: es }),
+                time: session.time,
+                location: 'Kutzal Pilates Studio',
+                actionBy: 'admin',
+              },
+            }),
+          });
+        } catch (coachErr) {
+          console.error('Error notifying coach of cancellation:', coachErr);
+        }
+      }
+
+      // Send Push notification to User whose booking was cancelled
+      try {
+        const [year, month, day] = session.date.split('-').map(Number);
+        const sessionDate = new Date(year, month - 1, day);
+        await fetch('/api/push/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            target: 'user',
+            userId,
+            payload: {
+              title: 'Tu reservación ha sido cancelada',
+              body: `Tu clase de ${session.custom_type_name || session.session_types?.name || 'Pilates'} del ${format(sessionDate, "d 'de' MMMM", { locale: es })} ha sido cancelada.`,
+              url: '/perfil',
+            },
+          }),
+        });
+      } catch (userPushErr) {
+        console.error('Error sending push to user:', userPushErr);
       }
 
       alert('Reservación cancelada exitosamente');
@@ -848,9 +917,24 @@ function SessionDetailModal({ session, onClose, onRefresh }: SessionDetailModalP
 
   const openRescheduleModal = async (booking: Booking) => {
     setSelectedBooking(booking);
+    setRescheduleSearch('');
+    setRescheduleDateFilter('');
     await fetchAvailableSessions();
     setShowRescheduleModal(true);
   };
+
+  const filteredRescheduleSessions = useMemo(() => {
+    return availableSessions.filter((s) => {
+      const typeName = (s.custom_type_name || s.session_types?.name || '').toLowerCase();
+      const coachName = (s.profiles?.full_name || '').toLowerCase();
+      const q = rescheduleSearch.toLowerCase().trim();
+
+      const matchesQuery = !q || typeName.includes(q) || coachName.includes(q);
+      const matchesDate = !rescheduleDateFilter || s.date === rescheduleDateFilter;
+
+      return matchesQuery && matchesDate;
+    });
+  }, [availableSessions, rescheduleSearch, rescheduleDateFilter]);
 
   const handleReschedule = async (newSessionId: string) => {
     if (!selectedBooking) return;
@@ -879,28 +963,106 @@ function SessionDetailModal({ session, onClose, onRefresh }: SessionDetailModalP
 
       if (error) throw error;
 
+      const [year, month, day] = newSession.date.split('-').map(Number);
+      const sessionDate = new Date(year, month - 1, day);
+      const newClassName = newSession.custom_type_name || newSession.session_types.name;
+      const formattedNewDate = format(sessionDate, "EEEE, d 'de' MMMM 'de' yyyy", { locale: es });
+      const [prevY, prevM, prevD] = session.date.split('-').map(Number);
+      const formattedPrevDate = format(new Date(prevY, prevM - 1, prevD), "EEEE, d 'de' MMMM 'de' yyyy", { locale: es });
+
       try {
-        const [year, month, day] = newSession.date.split('-').map(Number);
-        const sessionDate = new Date(year, month - 1, day);
         await fetch('/api/email/reservation', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             email: selectedBooking.profiles.email,
             reservationDetails: {
-              className: newSession.custom_type_name || newSession.session_types.name,
-              date: format(sessionDate, "EEEE, d 'de' MMMM 'de' yyyy", { locale: es }),
+              className: newClassName,
+              date: formattedNewDate,
               time: newSession.time,
               instructor: newSession.profiles.full_name,
               location: 'Kutzal Pilates Studio',
               isRescheduled: true,
-              previousDate: format(new Date(session.date), "EEEE, d 'de' MMMM 'de' yyyy", { locale: es }),
+              previousDate: formattedPrevDate,
               previousTime: session.time,
             },
           }),
         });
       } catch (emailError) {
         console.error('Error sending reschedule email:', emailError);
+      }
+
+      // Notify Coach of the new session
+      if (newSession.profiles?.email) {
+        try {
+          await fetch('/api/email/coach-notification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              coachEmail: newSession.profiles.email,
+              type: 'rescheduled',
+              details: {
+                coachName: newSession.profiles.full_name,
+                clientName: selectedBooking.profiles.full_name,
+                clientEmail: selectedBooking.profiles.email,
+                className: newClassName,
+                date: formattedNewDate,
+                time: newSession.time,
+                previousDate: formattedPrevDate,
+                previousTime: session.time,
+                location: 'Kutzal Pilates Studio',
+                actionBy: 'admin',
+              },
+            }),
+          });
+        } catch (coachErr) {
+          console.error('Error notifying new coach of reschedule:', coachErr);
+        }
+      }
+
+      // If previous session had a different coach, notify previous coach of cancellation
+      if (session.profiles?.email && session.profiles.email !== newSession.profiles?.email) {
+        try {
+          await fetch('/api/email/coach-notification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              coachEmail: session.profiles.email,
+              type: 'cancellation',
+              details: {
+                coachName: session.profiles.full_name,
+                clientName: selectedBooking.profiles.full_name,
+                clientEmail: selectedBooking.profiles.email,
+                className: session.custom_type_name || session.session_types.name,
+                date: formattedPrevDate,
+                time: session.time,
+                location: 'Kutzal Pilates Studio',
+                actionBy: 'admin',
+              },
+            }),
+          });
+        } catch (prevCoachErr) {
+          console.error('Error notifying previous coach of cancellation:', prevCoachErr);
+        }
+      }
+
+      // Send Push notification to User regarding the rescheduled class
+      try {
+        await fetch('/api/push/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            target: 'user',
+            userId: selectedBooking.user_id,
+            payload: {
+              title: '🗓️ Clase Reprogramada',
+              body: `Tu clase ha sido reprogramada para el ${formattedNewDate} a las ${newSession.time.slice(0, 5)} hrs.`,
+              url: '/perfil',
+            },
+          }),
+        });
+      } catch (userPushErr) {
+        console.error('Error sending push to rescheduled user:', userPushErr);
       }
 
       alert('Reservación reprogramada exitosamente. Se ha enviado un correo de confirmación al usuario.');
@@ -992,7 +1154,7 @@ function SessionDetailModal({ session, onClose, onRefresh }: SessionDetailModalP
                         Reprogramar
                       </button>
                       <button
-                        onClick={() => handleCancelBooking(booking.id, booking.user_id)}
+                        onClick={() => handleCancelBooking(booking.id, booking.user_id, booking.package_id)}
                         className="px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200 transition"
                       >
                         Cancelar
@@ -1034,36 +1196,77 @@ function SessionDetailModal({ session, onClose, onRefresh }: SessionDetailModalP
               </p>
             </div>
 
-            <h4 className="font-semibold mb-3">Sesiones Disponibles (mínimo 8 horas desde ahora)</h4>
-            {availableSessions.length === 0 ? (
-              <p className="text-grey-500 text-center py-8">No hay sesiones disponibles para reprogramar</p>
-            ) : (
-              <div className="space-y-2 max-h-96 overflow-y-auto">
-                {availableSessions.map((availSession) => (
+            <div className="mb-4 space-y-3">
+              <h4 className="font-semibold text-grey-800">Seleccionar nueva clase</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <input
+                  type="text"
+                  placeholder="Buscar por clase o instructor..."
+                  value={rescheduleSearch}
+                  onChange={(e) => setRescheduleSearch(e.target.value)}
+                  className="px-3 py-2 text-sm border border-grey-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-olive-500"
+                />
+                <input
+                  type="date"
+                  value={rescheduleDateFilter}
+                  onChange={(e) => setRescheduleDateFilter(e.target.value)}
+                  className="px-3 py-2 text-sm border border-grey-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-olive-500"
+                />
+              </div>
+              {(rescheduleSearch || rescheduleDateFilter) && (
+                <div className="flex justify-between items-center text-xs text-grey-500">
+                  <span>Mostrando {filteredRescheduleSessions.length} de {availableSessions.length} clases disponibles</span>
                   <button
-                    key={availSession.id}
-                    onClick={() => handleReschedule(availSession.id)}
-                    className="w-full text-left p-4 border border-grey-200 rounded-lg hover:border-olive-400 hover:bg-olive-50 transition"
+                    onClick={() => { setRescheduleSearch(''); setRescheduleDateFilter(''); }}
+                    className="text-olive-600 hover:underline font-medium"
                   >
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="font-semibold text-grey-900">
-                          {availSession.custom_type_name || availSession.session_types.name}
-                        </p>
-                        <p className="text-sm text-grey-600">
-                          {format(new Date(availSession.date + 'T00:00:00'), "EEEE, d 'de' MMMM", { locale: es })}
-                        </p>
-                        <p className="text-sm text-grey-600">{availSession.time} • {availSession.duration_minutes} min</p>
-                        <p className="text-sm text-grey-500">Coach: {availSession.profiles.full_name}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-medium text-green-600">
-                          {availSession.max_capacity - availSession.current_bookings} lugares
-                        </p>
-                      </div>
-                    </div>
+                    Limpiar filtros
                   </button>
-                ))}
+                </div>
+              )}
+            </div>
+
+            {loadingAvailableSessions ? (
+              <div className="py-12 text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-olive-500 mx-auto" />
+                <p className="text-xs text-grey-500 mt-2">Cargando clases disponibles...</p>
+              </div>
+            ) : filteredRescheduleSessions.length === 0 ? (
+              <p className="text-grey-500 text-center py-8 border border-dashed border-grey-200 rounded-lg">
+                No se encontraron clases disponibles para reprogramar con los filtros seleccionados.
+              </p>
+            ) : (
+              <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                {filteredRescheduleSessions.map((availSession) => {
+                  const [y, m, d] = availSession.date.split('-').map(Number);
+                  const sessionDateObj = new Date(y, m - 1, d);
+                  return (
+                    <button
+                      key={availSession.id}
+                      onClick={() => handleReschedule(availSession.id)}
+                      className="w-full text-left p-3.5 border border-grey-200 rounded-xl hover:border-olive-400 hover:bg-olive-50 transition"
+                    >
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="font-semibold text-grey-900">
+                            {availSession.custom_type_name || availSession.session_types?.name}
+                          </p>
+                          <p className="text-sm text-grey-600 capitalize">
+                            {format(sessionDateObj, "EEEE, d 'de' MMMM", { locale: es })}
+                          </p>
+                          <p className="text-xs text-grey-500 mt-0.5">
+                            {availSession.time.slice(0, 5)} hrs • {availSession.duration_minutes} min • Coach: {availSession.profiles?.full_name}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <span className="inline-block px-2.5 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                            {availSession.max_capacity - availSession.current_bookings} lugares
+                          </span>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             )}
 
@@ -1080,4 +1283,4 @@ function SessionDetailModal({ session, onClose, onRefresh }: SessionDetailModalP
   );
 }
 
-// Made with Bob
+

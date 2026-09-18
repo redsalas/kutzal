@@ -7,6 +7,7 @@ import { useProfile } from '@/hooks/useProfile';
 import UserManagement from '@/components/dashboard/UserManagement';
 import SessionManagement from '@/components/dashboard/SessionManagement';
 import CalendarView from '@/components/dashboard/CalendarView';
+import PushNotificationToggle from '@/components/PushNotificationToggle';
 
 type TabType = 'calendar' | 'sessions' | 'users';
 
@@ -71,6 +72,10 @@ export default function DashboardPage() {
 
         {/* Content */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {profile?.id && (
+            <PushNotificationToggle userId={profile.id} role={profile.role} />
+          )}
+
           {activeTab === 'calendar' && <CalendarView />}
           {activeTab === 'sessions' && <SessionManagement />}
           {activeTab === 'users' && <UserManagement />}
@@ -80,4 +85,4 @@ export default function DashboardPage() {
   );
 }
 
-// Made with Bob
+

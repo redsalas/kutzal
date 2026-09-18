@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { format, parseISO } from 'date-fns';
+import PushNotificationToggle from '@/components/PushNotificationToggle';
 import { es } from 'date-fns/locale';
 
 interface ClassPackage {
@@ -115,7 +116,13 @@ export default function PerfilPage() {
   const activePackages = packages.filter(
     (p) => p.status === 'active' && p.remaining_classes > 0 && new Date(p.expires_at) > new Date()
   );
-  const totalRemaining = activePackages.reduce((sum, p) => sum + p.remaining_classes, 0);
+  const hasUnlimited = activePackages.some(
+    (p) => p.total_classes >= 9999 || p.package_name.toLowerCase().includes('unlimited')
+  );
+  const totalRemaining = activePackages.reduce((sum, p) => {
+    if (p.total_classes >= 9999 || p.package_name.toLowerCase().includes('unlimited')) return sum;
+    return sum + p.remaining_classes;
+  }, 0);
 
   return (
     <div className="min-h-screen bg-grey-50 py-10 px-4">
@@ -141,6 +148,8 @@ export default function PerfilPage() {
           </div>
         ) : (
           <>
+            {user && <PushNotificationToggle userId={user.id} role="user" />}
+
             {/* Info card */}
             <div className="bg-white rounded-2xl border border-grey-200 p-6">
               <h2 className="text-lg font-semibold text-grey-800 mb-4">Información personal</h2>
@@ -173,13 +182,17 @@ export default function PerfilPage() {
             {/* Class balance summary */}
             <div className="bg-olive-700 rounded-2xl p-6 text-white">
               <p className="text-olive-200 text-sm font-medium uppercase tracking-widest mb-1">Clases disponibles</p>
-              <p className="text-5xl font-bold mb-1">{totalRemaining}</p>
+              <p className="text-5xl font-bold mb-1">
+                {hasUnlimited ? 'Ilimitadas' : totalRemaining}
+              </p>
               <p className="text-olive-300 text-sm">
                 {activePackages.length === 0
                   ? 'No tienes paquetes activos'
+                  : hasUnlimited
+                  ? 'Plan UNLIMITED MOVEMENT activo'
                   : `En ${activePackages.length} paquete${activePackages.length > 1 ? 's' : ''} activo${activePackages.length > 1 ? 's' : ''}`}
               </p>
-              {totalRemaining === 0 && (
+              {!hasUnlimited && totalRemaining === 0 && (
                 <Link
                   href="/clases"
                   className="inline-block mt-4 bg-white text-olive-700 px-5 py-2 rounded-xl text-sm font-semibold hover:bg-olive-50 transition-colors"
@@ -214,7 +227,8 @@ export default function PerfilPage() {
                     const sl = statusLabel[pkg.status] ?? { label: pkg.status, cls: 'bg-grey-100 text-grey-600' };
                     const expDate = new Date(pkg.expires_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
                     const buyDate = new Date(pkg.purchased_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
-                    const pct = Math.round((pkg.remaining_classes / pkg.total_classes) * 100);
+                    const isPkgUnlimited = pkg.total_classes >= 9999 || pkg.package_name.toLowerCase().includes('unlimited');
+                    const pct = isPkgUnlimited ? 100 : Math.round((pkg.remaining_classes / pkg.total_classes) * 100);
 
                     return (
                       <div key={pkg.id} className="border border-grey-200 rounded-xl p-4">
@@ -230,18 +244,25 @@ export default function PerfilPage() {
                             <span className="text-sm font-bold text-grey-700">${pkg.total_cost} MXN</span>
                           </div>
                         </div>
-                        <div className="space-y-1">
-                          <div className="flex justify-between text-xs text-grey-500">
-                            <span>{pkg.remaining_classes} clases restantes</span>
-                            <span>{pkg.total_classes} totales</span>
+                        {isPkgUnlimited ? (
+                          <div className="bg-olive-50 border border-olive-200 rounded-lg px-3 py-2 text-xs text-olive-800 font-medium flex justify-between items-center">
+                            <span>✨ Clases ilimitadas</span>
+                            <span>Válido hasta {expDate}</span>
                           </div>
-                          <div className="w-full bg-grey-100 rounded-full h-2">
-                            <div
-                              className="bg-olive-500 h-2 rounded-full transition-all"
-                              style={{ width: `${pct}%` }}
-                            />
+                        ) : (
+                          <div className="space-y-1">
+                            <div className="flex justify-between text-xs text-grey-500">
+                              <span>{pkg.remaining_classes} clases restantes</span>
+                              <span>{pkg.total_classes} totales</span>
+                            </div>
+                            <div className="w-full bg-grey-100 rounded-full h-2">
+                              <div
+                                className="bg-olive-500 h-2 rounded-full transition-all"
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
                           </div>
-                        </div>
+                        )}
                       </div>
                     );
                   })}

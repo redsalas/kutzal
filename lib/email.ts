@@ -7,12 +7,6 @@ function getTransporter() {
     host: process.env.SMTP_HOST || 'smtp.hostinger.com',
     port: parseInt(process.env.SMTP_PORT || '465', 10),
     secure: process.env.SMTP_SECURE !== 'false', // true for port 465 (SSL)
-    requireTLS: true,
-    tls: {
-      ciphers: "SSLv3"
-    },
-    debug: true,
-    connectionTimeout: 15000,
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
@@ -105,6 +99,37 @@ export async function sendReservationEmail(
   return sendEmail({ to: email, subject, html });
 }
 
+export type CoachNotificationType = 'booking' | 'cancellation' | 'rescheduled';
+
+export interface CoachNotificationDetails {
+  coachName?: string;
+  clientName?: string;
+  clientEmail?: string;
+  className?: string;
+  date?: string;
+  time?: string;
+  previousDate?: string;
+  previousTime?: string;
+  location?: string;
+  actionBy?: 'client' | 'admin';
+}
+
+export async function sendCoachNotificationEmail(
+  coachEmail: string,
+  type: CoachNotificationType,
+  details: CoachNotificationDetails
+) {
+  const titles: Record<CoachNotificationType, string> = {
+    booking: `Nueva Reservación: ${details.className || 'Clase'} — Kutzal`,
+    cancellation: `Cancelación de Reservación: ${details.className || 'Clase'} — Kutzal`,
+    rescheduled: `Reservación Reprogramada: ${details.className || 'Clase'} — Kutzal`,
+  };
+
+  const subject = titles[type];
+  const html = getCoachNotificationEmailTemplate(type, details);
+  return sendEmail({ to: coachEmail, subject, html });
+}
+
 export async function sendPackagePurchaseEmail(
   email: string,
   details: {
@@ -192,11 +217,98 @@ function getReservationEmailTemplate(details: {
           </table>
 
           <div style="background-color:#fefce8;border:1px solid #fde68a;border-radius:8px;padding:14px 18px;margin-bottom:28px;">
-            <p style="margin:0;font-size:13px;color:#854d0e;"><strong>Recordatorio:</strong> Por favor llega 10 minutos antes de tu clase. Trae calcetines, toalla y agua.</p>
+            <p style="margin:0;font-size:13px;color:#854d0e;"><strong>Recordatorio:</strong> Por favor llega 10 minutos antes de tu clase. Trae calcetines y toalla.</p>
           </div>
 
           <div style="text-align:center;">
             <a href="${APP_URL}/perfil" style="display:inline-block;padding:14px 32px;background-color:#4a5c3f;color:#ffffff;text-decoration:none;border-radius:24px;font-weight:600;font-size:15px;">Ver mis reservaciones</a>
+          </div>
+        </td></tr>
+        <tr><td>${emailFooter()}</td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
+function getCoachNotificationEmailTemplate(
+  type: CoachNotificationType,
+  details: CoachNotificationDetails
+): string {
+  const titles: Record<CoachNotificationType, { heading: string; badge: string; badgeBg: string; badgeColor: string; description: string }> = {
+    booking: {
+      heading: 'Nueva Reservación',
+      badge: '✓ Nueva Reservación',
+      badgeBg: '#4a5c3f',
+      badgeColor: '#ffffff',
+      description: `Un usuario ha reservado un lugar en tu clase.`,
+    },
+    cancellation: {
+      heading: 'Cancelación de Reservación',
+      badge: '✕ Cancelada',
+      badgeBg: '#dc2626',
+      badgeColor: '#ffffff',
+      description: `Una reservación en tu clase ha sido cancelada.`,
+    },
+    rescheduled: {
+      heading: 'Reservación Reprogramada',
+      badge: '↻ Reprogramada',
+      badgeBg: '#2563eb',
+      badgeColor: '#ffffff',
+      description: `Una reservación ha sido movida a tu clase.`,
+    },
+  };
+
+  const meta = titles[type];
+
+  const rows = [
+    { label: 'Clase', value: details.className },
+    { label: 'Fecha de la clase', value: details.date },
+    { label: 'Horario', value: details.time },
+    details.previousDate || details.previousTime
+      ? { label: 'Horario anterior', value: `${details.previousDate || ''} ${details.previousTime || ''}`.trim() }
+      : null,
+    { label: 'Alumno / Cliente', value: details.clientName || 'Usuario' },
+    { label: 'Correo del alumno', value: details.clientEmail },
+    { label: 'Ubicación', value: details.location || 'Kutzal Pilates Studio' },
+  ].filter((r): r is { label: string; value: string } => Boolean(r && r.value));
+
+  const tableRows = rows
+    .map(
+      (r, i) => `
+      <tr style="background:${i % 2 === 0 ? '#f7f8fa' : '#ffffff'};">
+        <td style="padding:12px 16px;font-weight:600;color:#1f2328;width:40%;font-size:14px;">${r.label}</td>
+        <td style="padding:12px 16px;color:#57606a;font-size:14px;">${r.value}</td>
+      </tr>`
+    )
+    .join('');
+
+  return `<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background-color:#f7f8fa;font-family:'Helvetica Neue',Arial,sans-serif;color:#1f2328;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f7f8fa;padding:32px 16px;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
+        <tr><td>${emailHeader()}</td></tr>
+        <tr><td style="padding:40px 40px 24px;">
+          <div style="text-align:center;margin-bottom:20px;">
+            <span style="display:inline-block;padding:6px 16px;border-radius:20px;background-color:${meta.badgeBg};color:${meta.badgeColor};font-size:13px;font-weight:600;">
+              ${meta.badge}
+            </span>
+          </div>
+          <h2 style="margin:0 0 8px;font-size:22px;text-align:center;color:#1f2328;">${meta.heading}</h2>
+          <p style="margin:0 0 24px;text-align:center;color:#57606a;">
+            ${details.coachName ? `Hola ${details.coachName}, ` : ''}${meta.description}
+          </p>
+
+          <table width="100%" cellpadding="0" cellspacing="0" style="border-radius:8px;overflow:hidden;border:1px solid #e5e7eb;margin-bottom:24px;">
+            ${tableRows}
+          </table>
+
+          <div style="text-align:center;margin-top:28px;">
+            <a href="${APP_URL}/dashboard" style="display:inline-block;padding:14px 32px;background-color:#4a5c3f;color:#ffffff;text-decoration:none;border-radius:24px;font-weight:600;font-size:15px;">Ver en el Dashboard</a>
           </div>
         </td></tr>
         <tr><td>${emailFooter()}</td></tr>
@@ -242,8 +354,13 @@ function getPackagePurchaseEmailTemplate(details: {
           <div style="background-color:#4a5c3f;border-radius:12px;padding:28px;text-align:center;margin-bottom:24px;">
             <p style="margin:0 0 4px;color:#c8d5b9;font-size:12px;letter-spacing:2px;text-transform:uppercase;">Paquete adquirido</p>
             <p style="margin:0 0 16px;color:#ffffff;font-size:22px;font-weight:700;">${details.packageName}</p>
-            <p style="margin:0;color:#ffffff;font-size:48px;font-weight:800;line-height:1;">${details.totalClasses}</p>
-            <p style="margin:4px 0 0;color:#c8d5b9;font-size:14px;">clase${details.totalClasses > 1 ? 's' : ''} disponible${details.totalClasses > 1 ? 's' : ''}</p>
+            ${
+              details.totalClasses >= 9999
+                ? `<p style="margin:0;color:#ffffff;font-size:36px;font-weight:800;line-height:1;">ILIMITADO</p>
+                   <p style="margin:4px 0 0;color:#c8d5b9;font-size:14px;">Todas las clases que quieras durante 1 mes</p>`
+                : `<p style="margin:0;color:#ffffff;font-size:48px;font-weight:800;line-height:1;">${details.totalClasses}</p>
+                   <p style="margin:4px 0 0;color:#c8d5b9;font-size:14px;">clase${details.totalClasses > 1 ? 's' : ''} disponible${details.totalClasses > 1 ? 's' : ''}</p>`
+            }
           </div>
 
           <!-- Details table -->
@@ -267,7 +384,11 @@ function getPackagePurchaseEmailTemplate(details: {
           </table>
 
           <div style="background-color:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:14px 18px;margin-bottom:28px;">
-            <p style="margin:0;font-size:13px;color:#166534;">Tienes <strong>${details.totalClasses} clase${details.totalClasses > 1 ? 's' : ''}</strong> para usar antes del <strong>${expiry}</strong>. ¡Empieza a reservar!</p>
+            <p style="margin:0;font-size:13px;color:#166534;">${
+              details.totalClasses >= 9999
+                ? `Tienes clases <strong>ilimitadas</strong> para usar antes del <strong>${expiry}</strong>. ¡Empieza a reservar!`
+                : `Tienes <strong>${details.totalClasses} clase${details.totalClasses > 1 ? 's' : ''}</strong> para usar antes del <strong>${expiry}</strong>. ¡Empieza a reservar!`
+            }</p>
           </div>
 
           <div style="text-align:center;">
