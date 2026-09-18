@@ -8,8 +8,47 @@ interface PushNotificationToggleProps {
 }
 
 export default function PushNotificationToggle({ userId, role }: PushNotificationToggleProps) {
-  const { isSupported, permission, isSubscribed, loading, subscribe, unsubscribe } =
+  const { isSupported, permission, isSubscribed, loading, isIOS, isStandalone, subscribe, unsubscribe } =
     usePushNotifications(userId);
+
+  // If on iOS and not in standalone mode (home screen app), guide the user on how to install it
+  if (isIOS && !isStandalone) {
+    return (
+      <div className="bg-white border border-grey-200 rounded-2xl p-5 mb-6 shadow-sm">
+        <div className="flex items-start gap-3">
+          <div className="p-2.5 bg-olive-50 rounded-xl text-olive-700 mt-0.5 shrink-0">
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+              />
+            </svg>
+          </div>
+          <div className="space-y-2">
+            <h3 className="font-semibold text-grey-800 text-sm sm:text-base">
+              Notificaciones en iPhone / iPad
+            </h3>
+            <p className="text-xs sm:text-sm text-grey-600">
+              Apple requiere que agregues Kutzal a tu pantalla de inicio para recibir notificaciones push en iOS:
+            </p>
+            <ol className="text-xs sm:text-sm text-grey-600 list-decimal list-inside space-y-1 bg-grey-50 p-3 rounded-xl border border-grey-100">
+              <li>
+                Presiona el botón <span className="font-semibold text-grey-800">Compartir</span> en Safari (el ícono del cuadro con flecha hacia arriba <span className="inline-block">⎋ / ⍗</span>).
+              </li>
+              <li>
+                Selecciona <span className="font-semibold text-grey-800">«Agregar a pantalla de inicio»</span>.
+              </li>
+              <li>
+                Abre Kutzal desde el ícono en tu pantalla de inicio e inicia sesión para activar las notificaciones.
+              </li>
+            </ol>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!isSupported) {
     return null;

@@ -26,6 +26,19 @@ const trevia = localFont({
 export const metadata: Metadata = {
   title: "Kutzal - Pilates Clásico",
   description: "Studio de Pilates Clásico - Transforma tu cuerpo y mente",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Kutzal",
+  },
+  icons: {
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/images/logo.webp", type: "image/webp" },
+    ],
+    apple: "/images/logo.webp",
+  },
 };
 
 export default function RootLayout({
