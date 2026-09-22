@@ -7,9 +7,10 @@ import { useProfile } from '@/hooks/useProfile';
 import UserManagement from '@/components/dashboard/UserManagement';
 import SessionManagement from '@/components/dashboard/SessionManagement';
 import CalendarView from '@/components/dashboard/CalendarView';
+import MetricsView from '@/components/dashboard/MetricsView';
 import PushNotificationToggle from '@/components/PushNotificationToggle';
 
-type TabType = 'calendar' | 'sessions' | 'users';
+type TabType = 'calendar' | 'sessions' | 'users' | 'metrics';
 
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<TabType>('calendar');
@@ -19,6 +20,7 @@ export default function DashboardPage() {
     { id: 'calendar' as TabType, name: 'Calendario', icon: '📅' },
     { id: 'sessions' as TabType, name: 'Sesiones', icon: '🏋️' },
     { id: 'users' as TabType, name: 'Usuarios', icon: '👥' },
+    { id: 'metrics' as TabType, name: 'Métricas', icon: '📊' },
   ];
 
   return (
@@ -48,13 +50,17 @@ export default function DashboardPage() {
         {/* Tabs */}
         <div className="bg-white border-b border-grey-200">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <nav className="flex space-x-8" aria-label="Tabs">
+            <nav
+              className="flex overflow-x-auto scrollbar-none -mb-px"
+              aria-label="Tabs"
+              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+            >
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={`
-                    py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2
+                    flex-shrink-0 py-4 px-4 border-b-2 font-medium text-sm flex items-center gap-2 whitespace-nowrap
                     ${
                       activeTab === tab.id
                         ? 'border-olive-500 text-olive-600'
@@ -79,6 +85,7 @@ export default function DashboardPage() {
           {activeTab === 'calendar' && <CalendarView />}
           {activeTab === 'sessions' && <SessionManagement />}
           {activeTab === 'users' && <UserManagement />}
+          {activeTab === 'metrics' && <MetricsView />}
         </div>
       </div>
     </ProtectedRoute>
