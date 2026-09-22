@@ -47,7 +47,10 @@ function getWeekStart(date: Date): Date {
 }
 
 function toYMD(date: Date): string {
-  return date.toISOString().slice(0, 10);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 export default function SessionManagement() {
@@ -585,6 +588,7 @@ function SessionModal({ session, sessionTypes, coaches, onClose, onSave }: Sessi
                 <option value="08:00">08:00</option>
                 <option value="09:00">09:00</option>
                 <option value="10:00">10:00</option>
+                <option value="11:00">11:00</option>
                 <option value="17:00">17:00</option>
                 <option value="18:00">18:00</option>
                 <option value="19:00">19:00</option>

@@ -7,9 +7,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { PACKAGE_OPTIONS, PackageOption } from '@/lib/packages';
 
-const weekdayMorning = ['07:00', '08:00', '09:00'];
+const weekdayMorning = ['07:00', '08:00', '09:00', '10:00', '11:00'];
 const weekdayAfternoon = ['17:00', '18:00', '19:00'];
-const saturday = ['08:00', '09:00', '10:00'];
+const saturday = ['08:00', '09:00', '10:00', '11:00'];
 
 type BookingEligibility = 'first_class' | 'package' | 'none' | 'loading';
 

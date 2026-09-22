@@ -1,9 +1,9 @@
 import Image from 'next/image';
 
 export default function WorkingHours() {
-  const weekdayMorning = ["07:00", "08:00", "09:00"];
+  const weekdayMorning = ["07:00", "08:00", "09:00", "10:00", "11:00"];
   const weekdayAfternoon = ["05:00", "06:00", "07:00"];
-  const saturday = ["08:00", "09:00", "10:00"];
+  const saturday = ["08:00", "09:00", "10:00", "11:00"];
 
   return (
     <section className="relative py-20 px-4 overflow-hidden">
@@ -82,7 +82,7 @@ export default function WorkingHours() {
               <h3 className="text-xl font-semibold text-grey-800 mb-4 pb-2 border-b border-grey-200">
                 Sábado
               </h3>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {saturday.map((time) => (
                   <div
                     key={time}

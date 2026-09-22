@@ -610,7 +610,7 @@ function EventDetailModal({ event, onClose, onRefresh }: EventDetailModalProps) 
               <div>
                 <label className="text-sm font-medium text-grey-500">Fecha</label>
                 <p className="text-grey-900">
-                  {format(new Date(session.date), 'dd/MM/yyyy', { locale: es })}
+                  {format(new Date(session.date + 'T00:00:00'), 'dd/MM/yyyy', { locale: es })}
                 </p>
               </div>
               <div>
@@ -723,7 +723,7 @@ function EventDetailModal({ event, onClose, onRefresh }: EventDetailModalProps) 
                 <strong>Usuario:</strong> {selectedBooking.profiles.full_name}
               </p>
               <p className="text-sm text-blue-800">
-                <strong>Sesión actual:</strong> {session.custom_type_name || session.session_types.name} - {format(new Date(session.date), 'dd/MM/yyyy')} {session.time}
+                <strong>Sesión actual:</strong> {session.custom_type_name || session.session_types.name} - {format(new Date(session.date + 'T00:00:00'), 'dd/MM/yyyy')} {session.time}
               </p>
             </div>
 
